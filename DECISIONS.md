@@ -28,3 +28,4 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18: Frenzy Chain is timed with the **Space bar** (X too) on a keyboard, not an on-screen button; the Press / Dodge / Parry tap buttons only show on touch screens.
 - 2026-10-18 *(my call)*: D3: the Dragoon button glows once SP reaches 100 but stays off until D4; Escape is clickable, shown crossed out, and answers "Can't escape!" without using the turn. Damage numbers pop per hit as it lands.
 - 2026-10-18 *(my call)*: New test hook `?tune=name:value` (e.g. `?tune=rival.atk:300`) tries numbers from `src/duel/data.js` without editing it; the check uses it for the Defeat run, since the real numbers can't lose.
+- 2026-10-18: Scores after D3: fun 3.0, look 1.9; continue to D4.
