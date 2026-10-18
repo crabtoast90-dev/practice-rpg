@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { PARTY } from '../src/party/data.js';
 import { createParty, timeline, runFight } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
-import { createDuel } from '../src/duel/sim.js';
+import { createDuel, heroTurn, rivalTurn, rivalIntent, playFight, perfectChainsToFall, heroPhysical, rivalPhysical } from '../src/duel/sim.js';
 
 const RUNS = 'check-output';
 const KEEP = 5;
@@ -35,6 +35,98 @@ for (const seed of [SEED, 2, 3]) {
   if (JSON.stringify(x.events) !== JSON.stringify(y.events)) failures.push(`[node] party seed ${seed}: two runs differ`);
   else summaries.push(`[node] party seed ${seed} auto fight twice: identical (${x.result}, ${x.turns} turns, ${x.events.length} events)`);
 }
+
+// Node test of the duel rules: scripted perfect / early / late / missed presses give the
+// hit counts RESEARCH.md predicts, and dodge / parry / Riposte / Guard / items work.
+function duelRules() {
+  const expect = (what, got, want) => {
+    if (JSON.stringify(got) !== JSON.stringify(want)) failures.push(`[node duel] ${what}: got ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`);
+  };
+  const chain = (presses, data = DUEL) => {
+    const st = createDuel(data, SEED);
+    const ev = heroTurn(data, st, { cmd: 'attack', presses });
+    return { hits: ev.find((e) => e.type === 'chainEnd').hits, damage: st.rival.hp - st.rival.hpNow, sp: st.hero.sp, heroHurt: st.hero.hp - st.hero.hpNow, verdicts: ev.filter((e) => e.type === 'press').map((e) => e.verdict) };
+  };
+  const dmg = (n) => heroPhysical(DUEL, DUEL.addition.hitPercent.slice(0, n).reduce((a, b) => a + b, 0));
+  const sp = (n) => n * Math.round(DUEL.addition.spPerHit * DUEL.addition.spMult);
+  const cases = [
+    ['all 5 presses perfect', [0, 0, 0, 0, 0], 6],
+    ['press 1 late (+100 ms)', [100, 0, 0, 0, 0], 1],
+    ['press 3 early (-100 ms)', [0, 0, -100, 0, 0], 3],
+    ['press 5 missed (no press)', [0, 0, 0, 0, null], 5],
+    ['no presses at all', [], 1],
+    ['window edges (±75 ms) land', [-75, 75, -75, 75, 0], 6],
+    ['just outside the edge (+76 ms on press 2)', [0, 76, 0, 0, 0], 2],
+    ['press 1 before the squares start (-800 ms) is ignored', [-800, 0, 0, 0, 0], 1],
+  ];
+  for (const [what, presses, hits] of cases) {
+    const got = chain(presses);
+    expect(`${what}: hits`, got.hits, hits);
+    expect(`${what}: damage`, got.damage, dmg(hits));
+    expect(`${what}: SP`, got.sp, sp(hits));
+    summaries.push(`[node duel] ${what}: ${got.hits} hits, ${got.damage} damage, ${got.sp} SP (${got.verdicts.join(' ') || 'no prompt'})`);
+  }
+  // The counter prompt (cut from this fight, kept working): press 3 needs the counter button.
+  const counterData = { ...DUEL, addition: { ...DUEL.addition, counterable: true, counterAtPress: 3 } };
+  const c1 = chain([0, 0, 0, 0, 0], counterData);
+  expect('counter answered with the normal button: hits', c1.hits, 3);
+  expect('counter answered with the normal button: Rhen hurt', c1.heroHurt, rivalPhysical(DUEL, DUEL.rival.basic.mult));
+  const c2 = chain([0, 0, { button: 'counter', ms: 10 }, 0, 0], counterData);
+  expect('counter answered with the counter button: hits', c2.hits, 6);
+  expect('counter answered with the counter button: Rhen hurt', c2.heroHurt, 0);
+  summaries.push(`[node duel] counter prompt: normal button ${c1.hits} hits (${c1.verdicts.join(' ')}), counter button ${c2.hits} hits`);
+
+  // Defence. Order: Rhen, Vael (Four Seals opener), Rhen, Rhen, Vael (Rising Cut).
+  const st = createDuel(DUEL, SEED);
+  heroTurn(DUEL, st, { cmd: 'escape' });
+  expect('escape refused keeps the turn', st.next, 'hero');
+  heroTurn(DUEL, st, { cmd: 'guard' });
+  expect('guard heals 10%', st.hero.hpNow, st.hero.hp);
+  expect('Vael opens with Four Seals', rivalIntent(DUEL, st).name, DUEL.rival.signature.name);
+  const parry = { kind: 'parry', ms: 0 };
+  let ev = rivalTurn(DUEL, st, [parry, { kind: 'parry', ms: -70 }, { kind: 'parry', ms: 70 }, parry]);
+  expect('four parries: Rhen untouched', st.hero.hpNow, st.hero.hp);
+  expect('four parries: SP', st.hero.sp, 4 * DUEL.defense.spPerParry);
+  expect('four parries: Riposte damage', st.rival.hp - st.rival.hpNow, heroPhysical(DUEL, DUEL.defense.counter.percent));
+  summaries.push(`[node duel] Four Seals fully parried: ${ev.filter((e) => e.type === 'defend').map((e) => e.verdict).join(' ')}, Riposte for ${st.rival.hp - st.rival.hpNow}`);
+  heroTurn(DUEL, st, { cmd: 'guard' });
+  heroTurn(DUEL, st, { cmd: 'guard' });
+  expect('then Rising Cut', rivalIntent(DUEL, st).name, DUEL.rival.basic.name);
+  rivalTurn(DUEL, st, [null]);
+  expect('Rising Cut on a guarding Rhen: half damage', st.hero.hp - st.hero.hpNow, Math.floor(rivalPhysical(DUEL, 1) * DUEL.guard.damageTaken));
+  const hurt = (defense, move = 'basic') => {
+    const s2 = createDuel(DUEL, SEED);
+    s2.rival.openerUsed = move === 'basic';
+    s2.next = 'rival';
+    const e2 = rivalTurn(DUEL, s2, defense);
+    return { hurt: s2.hero.hp - s2.hero.hpNow, verdicts: e2.filter((e) => e.type === 'defend').map((e) => e.verdict), riposte: e2.some((e) => e.type === 'riposte') };
+  };
+  const one = rivalPhysical(DUEL, 1);
+  expect('Rising Cut dodged at +100 ms', hurt([{ kind: 'dodge', ms: 100 }]), { hurt: 0, verdicts: ['dodged'], riposte: false });
+  expect('Rising Cut parried at +100 ms is late', hurt([{ kind: 'parry', ms: 100 }]), { hurt: one, verdicts: ['late'], riposte: false });
+  expect('Rising Cut, no press', hurt([null]), { hurt: one, verdicts: ['none'], riposte: false });
+  expect('Rising Cut, mashing: first press early, the rest locked out', hurt([[-200, -120, -40, 40].map((ms) => ({ kind: 'parry', ms }))]), { hurt: one, verdicts: ['early'], riposte: false });
+  expect('Rising Cut parried: Riposte', hurt([parry]).riposte, true);
+  const seal = rivalPhysical(DUEL, 4) / 4;
+  expect('Four Seals: a late parry locks out the next pillar', hurt([{ kind: 'parry', ms: 60 }, { kind: 'parry', ms: -100 }, parry, parry], 'signature'), { hurt: Math.floor(seal), verdicts: ['parried', 'none', 'parried', 'parried'], riposte: false });
+
+  // Items, and the target: Vael falls to the 7th perfect chain, not the 6th.
+  const s3 = createDuel(DUEL, SEED);
+  s3.hero.hpNow = 100;
+  heroTurn(DUEL, s3, { cmd: 'item', item: 'Healing Potion' });
+  expect('Healing Potion heals 50%', s3.hero.hpNow, 100 + Math.floor(s3.hero.hp / 2));
+  s3.next = 'hero';
+  heroTurn(DUEL, s3, { cmd: 'item', item: 'Spirit Potion' });
+  expect('Spirit Potion gives 100 SP', s3.hero.sp, 100);
+  const pc = perfectChainsToFall(DUEL);
+  expect('perfect chains to fell Vael', [pc.result, pc.chains], ['win', DUEL.targets.perfectChainsToWin]);
+  summaries.push(`[node duel] Vael falls to perfect chain ${pc.chains} (target ${DUEL.targets.perfectChainsToWin}); HP after each: ${pc.hpAfter.join(', ')}`);
+  for (const k of Object.keys(DUEL.accuracy)) {
+    const a = JSON.stringify(playFight(DUEL, 42, k));
+    if (a !== JSON.stringify(playFight(DUEL, 42, k))) failures.push(`[node duel] ${k} fight is not deterministic`);
+  }
+}
+duelRules();
 
 let server;
 let base = URL_ARG;

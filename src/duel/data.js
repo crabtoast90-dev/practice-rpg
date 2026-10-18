@@ -37,6 +37,7 @@ export const DUEL = {
     ignoreBeforeTick: 9,
     squareLeadTicks: 17,
     counterable: false, // as in the source (user cut the mid-chain counter 2026-10-18)
+    counterAtPress: 3, // which press (1-5) asks for the counter button, if counterable (best guess; unused now)
   },
 
   dragoon: {
@@ -61,6 +62,7 @@ export const DUEL = {
     spPerParry: 10,
     counter: { name: 'Riposte', percent: 50 }, // after parrying every hit of an attack; % like an addition hit
     hits: { basic: 1, signature: 4 }, // Rising Cut is 1 hit, Four Seals one hit per pillar
+    signatureHitGapMs: 450, // time between the pillars' contacts (my call, to be felt in D2)
   },
 
   guard: { damageTaken: 0.5, healPercent: 10 },
@@ -71,6 +73,22 @@ export const DUEL = {
 
   // Targets npm run sim checks against.
   targets: { perfectChainsToWin: 7 },
+
+  // Turn order: each side's next turn comes every turnGauge / speed (my call, same idea as Party).
+  turnGauge: 10000,
+
+  // Simulated players for npm run sim (my calls). Each press lands at biasMs + a random spread
+  // of sdMs (bell curve) from the perfect frame; missPercent of presses never come. They parry
+  // or dodge Vael's hits as `defend` says. A masher presses `mash.presses` times, `mash.gapMs` apart.
+  accuracy: {
+    perfect: { label: 'perfect', biasMs: 0, sdMs: 0, missPercent: 0, defend: 'parry' },
+    good: { label: 'good player', biasMs: 0, sdMs: 40, missPercent: 2, defend: 'parry' },
+    sloppy: { label: 'sloppy', biasMs: 30, sdMs: 90, missPercent: 8, defend: 'dodge' },
+    mashing: { label: 'mashing', biasMs: -250, sdMs: 60, missPercent: 0, defend: 'dodge', mash: { presses: 5, gapMs: 90 } },
+  },
+  // The simulated player's choices: Healing Potion below this % HP while any are left, else Attack.
+  bot: { healBelowPercent: 35 },
+  simFights: 1000,
 
   // Battle menu, in the source game's order. Escape is greyed out against a boss.
   menu: [

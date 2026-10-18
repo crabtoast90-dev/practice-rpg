@@ -1,15 +1,31 @@
 # Balance report
 
-Written by `npm run sim` on 2026-10-18 06:47 UTC. Do not edit by hand.
+Written by `npm run sim` on 2026-10-18 06:48 UTC. Do not edit by hand.
 
 ## Headline
 
-- Duel: not simulated yet (PLAN.md D1). Numbers checked against RESEARCH.md on 2026-10-18.
+- Duel target **PASSES**: Vael falls to perfect Frenzy Chain number 7 (target 7).
+- Duel win rate: perfect 100% in 6 turns, good player 100% in 7 turns, sloppy 100% in 18 turns, mashing 100% in 35 turns (Rhen's turns, median of 1000 fights each; no Dragoon yet).
 - Party: auto-battle wins 100% of 1000 seeded fights, in 77 turns (1306 action value) on average. Damage share: Brann 53%, Nyx 39%, Sola 2%, Aldric 5%. No targets set yet (PLAN.md P4).
 
 ## Mode 1: Duel
 
-Status: RESEARCH.md checked 2026-10-18. Once built, this section reports win rate and fight length at four press accuracies (perfect, good player, sloppy, mashing) and how many turns until Dragoon.
+Numbers: RESEARCH.md checked 2026-10-18. Dragoon form is not in the sim yet (PLAN.md D4), so these fights are Frenzy Chains, parries / dodges and Healing Potions only; Dragoon will make every row shorter.
+
+### Target: perfect chains to win
+
+A perfect Frenzy Chain does 476 damage. Vael has 3,300 HP. Attacking only, with no Ripostes: after chain 6 he has 444 HP left; he falls to chain 7 (after his last-gasp Four Seals). Target 7: **pass**.
+
+### Win rate and fight length by press accuracy
+
+player | how they press | defends with | wins | fight length (Rhen turns) | all turns | HP left when winning | hits per chain (of 6) | Dragoon first ready on Rhen turn | parries / dodges per fight
+--- | --- | --- | --- | --- | --- | --- | --- | --- | ---
+perfect | every press on the perfect frame | parry | 100% | 6 | 10 | 100% | 5.5 | 2 | 10.0 / 0.0
+good player | spread ±40 ms, 2% no press | parry | 100% | 7 | 12 | 98% | 4.7 | 2 | 10.1 / 0.0
+sloppy | +30 ms off, spread ±90 ms, 8% no press | dodge | 100% | 18 | 30 | 86% | 2.1 | 3 | 0.0 / 12.2
+mashing | -250 ms off, spread ±60 ms, 5 presses 90 ms apart | dodge | 100% | 35 | 58 | 43% | 1.0 | 4 | 0.0 / 3.4
+
+In plain words: Vael's hits are small against boosted Rhen (Rising Cut 123, Four Seals 492, Rhen has 5,512 HP), so even a masher wins; the press skill decides how long the fight takes, not whether you win. There is no win-rate target yet: tell me one if you want the fight to be losable.
 
 ## Mode 2: Party
 

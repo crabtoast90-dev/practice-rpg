@@ -16,3 +16,7 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18: Correction: the +100% stats are for **Rhen** (the player), not Vael: all six stats doubled. (I had applied it to Vael by mistake.)
 - 2026-10-18: Cut Vael's mid-chain counter during Frenzy Chain; dodge / parry stays on Vael's own attacks.
 - 2026-10-18: Exact numbers matter less than feel: the player wins after **7 perfect Frenzy Chains**. Vael's HP set to 3,300 to hit that (target `perfectChainsToWin: 7` in `src/duel/data.js`).
+- 2026-10-18 *(my call)*: Vael's last gasp: when his HP first hits 0 he casts Four Seals at once (out of turn, defendable), then falls; if it drops Rhen, it's a loss. This keeps "falls to the 7th perfect chain".
+- 2026-10-18 *(my call)*: Duel turn order: each side acts every 10,000 / speed (Rhen 100, Vael 65: about 3 Rhen turns per 2 of Vael's), ties to Rhen. Four Seals' four pillars land 450 ms apart. Riposte gives no SP of its own (the parries do).
+- 2026-10-18 *(my call)*: Addition window: the 150 ms window is centred on the perfect frame (±75 ms). On a dodge / parry, the first press that isn't locked out decides that hit.
+- 2026-10-18 *(my call)*: Simulated players for `npm run sim`: perfect (on the frame, parries), good (±40 ms, parries), sloppy (+30 ms, ±90 ms, dodges), mashing (250 ms early, five quick presses, dodges); the bot drinks a Healing Potion below 35% HP. All in `src/duel/data.js`.

@@ -215,7 +215,8 @@ The user asked for counters modelled on Expedition 33's dodge and parry. Sources
 - Rhen can **dodge** (wider window) or **parry** (tighter window) every hit of Vael's attacks, timed in ms from the hit's contact moment.
 - **Rising Cut** (his basic) is 1 hit; **Four Seals** (his signature) is 4 hits, one per pillar, each defendable. Parry all of an attack's hits → Rhen's automatic counter-attack.
 - ~~Vael counters mid-chain~~: cut by the user.
-- A press locks out further presses for 300 ms, so mashing fails.
+- A press locks out further presses for 300 ms, so mashing fails. On each hit, the first press that isn't locked out decides it (an early press wastes the hit, as in Expedition 33).
+- Four Seals' pillars land **450 ms** apart (my call; to be felt in D2). Riposte = 50% of a Frenzy Chain = 238 damage.
 - Parries give Rhen SP (our stand-in for Expedition 33's AP).
 
 ---

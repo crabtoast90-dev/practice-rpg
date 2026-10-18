@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { PARTY } from '../src/party/data.js';
 import { createParty, timeline, actionValue, runFight } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
+import { playFight, perfectChainsToFall, heroPhysical, rivalPhysical } from '../src/duel/sim.js';
 
 const out = [];
 
@@ -26,19 +27,59 @@ const totalDamage = Object.values(party.perHero).reduce((s, x) => s + x.damage, 
 const sameTwice = JSON.stringify(runFight(PARTY, 1).events) === JSON.stringify(runFight(PARTY, 1).events);
 const line = (s = '') => out.push(s);
 
+// ---- Duel: simulated fights at each press accuracy, and the perfect-chain target ----
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
+const mean = (xs) => xs.reduce((a, b) => a + b, 0) / (xs.length || 1);
+const duelRows = Object.entries(DUEL.accuracy).map(([key, p]) => {
+  const fights = Array.from({ length: DUEL.simFights }, (_, i) => playFight(DUEL, i + 1, key));
+  const wins = fights.filter((f) => f.result === 'win');
+  return {
+    key, p, fights,
+    winPct: (100 * wins.length) / fights.length,
+    turns: median(fights.map((f) => f.heroTurns)),
+    rounds: median(fights.map((f) => f.actions)),
+    hpLeft: mean(wins.map((f) => (100 * f.heroHp) / (DUEL.hero.hp * (DUEL.hero.soloBoost?.mult ?? 1)))),
+    hitsPerChain: mean(fights.map((f) => f.hitsLanded / f.chains)),
+    dragoon: median(fights.map((f) => f.dragoonReadyTurn ?? Infinity)),
+    parries: mean(fights.map((f) => f.parries)),
+    dodges: mean(fights.map((f) => f.dodges)),
+  };
+});
+const chainTarget = DUEL.targets.perfectChainsToWin;
+const chains = perfectChainsToFall(DUEL);
+const chainPass = chains.result === 'win' && chains.chains === chainTarget;
+const n0 = (x) => Math.round(x).toLocaleString('en-US');
+
 line('# Balance report');
 line();
 line(`Written by \`npm run sim\` on ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Do not edit by hand.`);
 line();
 line('## Headline');
 line();
-line('- Duel: not simulated yet (PLAN.md D1). Numbers checked against RESEARCH.md on 2026-10-18.');
+line(`- Duel target **${chainPass ? 'PASSES' : 'FAILS'}**: Vael falls to perfect Frenzy Chain number ${chains.chains} (target ${chainTarget}).`);
+line(`- Duel win rate: ${duelRows.map((r) => `${r.p.label} ${n0(r.winPct)}% in ${r.turns} turns`).join(', ')} (Rhen's turns, median of ${DUEL.simFights} fights each; no Dragoon yet).`);
 line(`- Party: auto-battle wins ${pctOf(party.win, FIGHTS)} of ${FIGHTS} seeded fights, in ${Math.round(avg(party.turns))} turns (${Math.round(avg(party.av))} action value) on average. Damage share: ${PARTY.lineup.map((id) => `${PARTY.heroes[id].name} ${pctOf(party.perHero[id].damage, totalDamage)}`).join(', ')}. No targets set yet (PLAN.md P4).`);
 line();
 
 line('## Mode 1: Duel');
 line();
-line(`Status: ${DUEL.status}. Once built, this section reports win rate and fight length at four press accuracies (perfect, good player, sloppy, mashing) and how many turns until Dragoon.`);
+line(`Numbers: ${DUEL.status}. Dragoon form is not in the sim yet (PLAN.md D4), so these fights are Frenzy Chains, parries / dodges and Healing Potions only; Dragoon will make every row shorter.`);
+line();
+line('### Target: perfect chains to win');
+line();
+line(`A perfect Frenzy Chain does ${heroPhysical(DUEL, 100)} damage. Vael has ${n0(DUEL.rival.hp)} HP. Attacking only, with no Ripostes: after chain ${chainTarget - 1} he has ${n0(chains.hpAfter[chainTarget - 2] ?? 0)} HP left; he falls to chain ${chains.chains} (after his last-gasp Four Seals). Target ${chainTarget}: **${chainPass ? 'pass' : 'fail'}**.`);
+line();
+line('### Win rate and fight length by press accuracy');
+line();
+line('player | how they press | defends with | wins | fight length (Rhen turns) | all turns | HP left when winning | hits per chain (of 6) | Dragoon first ready on Rhen turn | parries / dodges per fight');
+line('--- | --- | --- | --- | --- | --- | --- | --- | --- | ---');
+for (const r of duelRows) {
+  const how = r.p.sdMs === 0 && r.p.biasMs === 0 ? 'every press on the perfect frame' : `${r.p.biasMs ? `${r.p.biasMs > 0 ? '+' : ''}${r.p.biasMs} ms off, ` : ''}spread ±${r.p.sdMs} ms${r.p.missPercent ? `, ${r.p.missPercent}% no press` : ''}${r.p.mash ? `, ${r.p.mash.presses} presses ${r.p.mash.gapMs} ms apart` : ''}`;
+  line(`${r.p.label} | ${how} | ${r.p.defend} | ${n0(r.winPct)}% | ${r.turns} | ${r.rounds} | ${n0(r.hpLeft)}% | ${r.hitsPerChain.toFixed(1)} | ${r.dragoon} | ${r.parries.toFixed(1)} / ${r.dodges.toFixed(1)}`);
+}
+line();
+const mash = duelRows.find((r) => r.key === 'mashing');
+line(`In plain words: Vael's hits are small against boosted Rhen (Rising Cut ${rivalPhysical(DUEL, DUEL.rival.basic.mult)}, Four Seals ${rivalPhysical(DUEL, DUEL.rival.signature.mult)}, Rhen has ${n0(DUEL.hero.hp * (DUEL.hero.soloBoost?.mult ?? 1))} HP), so ${mash.winPct >= 99 ? 'even a masher wins' : `a masher wins ${n0(mash.winPct)}%`}; the press skill decides how long the fight takes, not whether you win. There is no win-rate target yet: tell me one if you want the fight to be losable.`);
 line();
 
 line('## Mode 2: Party');
