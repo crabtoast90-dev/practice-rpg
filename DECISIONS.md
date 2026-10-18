@@ -24,3 +24,4 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18 *(my call)*: D2 keys: Space or X = Frenzy Chain press and parry, Z = dodge, C = counter; on phone, big Press / Dodge / Parry tap buttons replace the menu while a timing prompt is up.
 - 2026-10-18 *(my call)*: Vael's hits get a visible cue: a red ring closes on Rhen and lands on each hit's contact (0.75 s lead), since our placeholder swings don't read like Expedition 33's animations. The Frenzy Chain squares close on Vael and turn 90° as they shrink; flashes white / grey / blue for hit / early / late, red for a counter prompt.
 - 2026-10-18 *(my call)*: Input delay: one measured frame is subtracted from every press until you calibrate in `?debug` (tap with a flashing box; the median lag is stored on that device and replaces the estimate).
+- 2026-10-18: D2 feel note: "works and feels good on laptop"; phone test skipped. Windows, rhythm and the ring cue stay as they are.
