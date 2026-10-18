@@ -2,6 +2,8 @@
 
 Everything a new practice game needs on day one, distilled from three earlier games: **practice-glade** (exploration), **practice-skirmish** (autobattler) and **practice-rpg** (duel + party battle), all at https://github.com/crabtoast90-dev.
 
+**Where it lives:** https://github.com/crabtoast90-dev/practice-rpg/tree/main/game-kit (folder `game-kit/` on practice-rpg's `main`).
+
 - **Starting a new game?** Read `starter/HOW-TO-START.md`.
 - **Looking for a model or animation?** Read `assets/CATALOG.md`.
 - **Planning a game?** Read `docs/LESSONS.md` first.

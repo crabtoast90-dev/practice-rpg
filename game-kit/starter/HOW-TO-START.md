@@ -9,7 +9,7 @@ For the **setup session** of a new project (session 0). Claude follows these ste
 ## Steps (Claude)
 
 1. **Get the kit.** Clone it to a scratch folder (it is public, no credentials needed):
-   `git clone --depth 1 <kit repo URL> /tmp/kit` (today the kit lives in `crabtoast90-dev/practice-rpg`, folder `game-kit/`, on branch `claude/magical-ritchie-bctsvn` until it gets its own repo: add `--branch claude/magical-ritchie-bctsvn` and use `/tmp/kit/game-kit/`).
+   `git clone --depth 1 https://github.com/crabtoast90-dev/practice-rpg /tmp/kit-repo` and use `/tmp/kit-repo/game-kit/` as the kit (it lives on practice-rpg's `main`, folder `game-kit/`). Below, `/tmp/kit` means that folder.
 2. **Copy the starter into the repo root, hidden files included:**
    `cp -r /tmp/kit/starter/. .` then delete `HOW-TO-START.md` from the copy. Check that `.github/workflows/deploy.yml` and `.gitignore` came across.
 3. **Name it.** `package.json` and `package-lock.json` `"name"`, the `<title>` and start screen in `index.html`, and every `{{...}}` in `CLAUDE.md`, `README.md`, `PLAN.md`, `DECISIONS.md` (the live URL is `https://<owner>.github.io/<repo>/`).

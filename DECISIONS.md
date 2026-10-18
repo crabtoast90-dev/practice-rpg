@@ -40,4 +40,4 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18: Scores at release: fun 4.1, look 3 (same as after D5).
 - 2026-10-18: Party target set: auto-battle wins about **70%** of fights ("70% winrate on auto is fine"); BALANCE.md accepts 65-75% (`targets.autoWinRate` in `src/party/data.js`).
 - 2026-10-18: Party tuning set **A** chosen: skeleton ATK ×1.5 (Bone Minion 300→450, Bone Warrior 420→630, Bone Caster 380→570, Bone Stalker 460→690). Auto win rate 100% → 72%.
-- 2026-10-18: Build a reusable game kit (starter, CC0 asset library, PAINTOVER and LESSONS docs). *(my call)*: it lives in `game-kit/` on this branch, not merged to `main` (it would add 30 MB to the game site repo and isn't part of the game); it can move to its own repo.
+- 2026-10-18: Build a reusable game kit (starter, CC0 asset library, PAINTOVER and LESSONS docs). It lives in `game-kit/` on `main` (user: merge it "so other games/sessions won't have trouble finding it"); the game build ignores it.
