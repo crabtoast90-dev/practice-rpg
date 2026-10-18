@@ -24,6 +24,10 @@ const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
 const pctOf = (n, d) => `${d ? Math.round((100 * n) / d) : 0}%`;
 const range = (a, unit) => `${Math.round(avg(a))} ${unit} on average (shortest ${Math.round(Math.min(...a))}, longest ${Math.round(Math.max(...a))})`;
 const totalDamage = Object.values(party.perHero).reduce((s, x) => s + x.damage, 0);
+const winPct = (100 * party.win) / FIGHTS;
+const winT = PARTY.targets.autoWinRate;
+const winPass = winPct >= winT.min && winPct <= winT.max;
+const winVerdict = `Target auto win rate ${winT.aim}% (accepting ${winT.min}-${winT.max}%): **${winPass ? 'PASSES' : 'FAILS'}** at ${Math.round(winPct)}%${winPass ? '' : winPct > winT.max ? ' (the party wins too often)' : ' (the party loses too often)'}.`;
 const sameTwice = JSON.stringify(runFight(PARTY, 1).events) === JSON.stringify(runFight(PARTY, 1).events);
 const line = (s = '') => out.push(s);
 
@@ -59,7 +63,7 @@ line('## Headline');
 line();
 line(`- Duel target **${chainPass ? 'PASSES' : 'FAILS'}**: Vael falls to perfect Frenzy Chain number ${chains.chains} (target ${chainTarget}).`);
 line(`- Duel win rate: ${duelRows.map((r) => `${r.p.label} ${n0(r.winPct)}% in ${r.turns} turns`).join(', ')} (Rhen's turns, median of ${DUEL.simFights} fights each; the bot turns Dragoon at ${DUEL.bot.dragoonAtSp} SP and Strikes).`);
-line(`- Party: auto-battle wins ${pctOf(party.win, FIGHTS)} of ${FIGHTS} seeded fights, in ${Math.round(avg(party.turns))} turns (${Math.round(avg(party.av))} action value) on average. Damage share: ${PARTY.lineup.map((id) => `${PARTY.heroes[id].name} ${pctOf(party.perHero[id].damage, totalDamage)}`).join(', ')}. No targets set yet (PLAN.md P4).`);
+line(`- Party: auto-battle wins ${pctOf(party.win, FIGHTS)} of ${FIGHTS} seeded fights, in ${Math.round(avg(party.turns))} turns (${Math.round(avg(party.av))} action value) on average. Damage share: ${PARTY.lineup.map((id) => `${PARTY.heroes[id].name} ${pctOf(party.perHero[id].damage, totalDamage)}`).join(', ')}. ${winVerdict}`);
 line();
 
 line('## Mode 1: Duel');
@@ -98,6 +102,7 @@ line(`Opening order, wave 1: ${timeline(PARTY, battle, 10).map((t) => t.name).jo
 line();
 line(`### ${FIGHTS} auto fights (seeds 1-${FIGHTS})`);
 line();
+line(`- ${winVerdict}`);
 line(`- Result: ${party.win} wins, ${party.lose} losses, ${party.draw} draws (win rate ${pctOf(party.win, FIGHTS)}).`);
 line(`- Fight length: ${range(party.turns, 'turns')} by anyone, of which ${range(party.heroTurns, 'hero turns')}. Ultimates are extra actions and don't count as turns.`);
 line(`- Fight length in action value: ${range(party.av, 'action value')} (a speed-100 unit acts once per 100).`);

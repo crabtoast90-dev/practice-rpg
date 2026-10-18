@@ -21,6 +21,11 @@ export const PARTY = {
   //   'skill on an enemy without <Skill name>'
   //   'skill if anyone has no shield'   'skill if anyone below N% HP'
 
+  // Targets the user set; npm run sim says pass / fail for each in BALANCE.md.
+  targets: {
+    autoWinRate: { aim: 70, min: 65, max: 75 }, // % of seeded auto fights won (2026-10-18: "70% is fine")
+  },
+
   // Playback pace on screen (view only; the sim ignores these). Milliseconds at 1x.
   playback: {
     intro: 700, // before the first turn
