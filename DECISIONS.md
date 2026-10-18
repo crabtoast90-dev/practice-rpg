@@ -13,4 +13,6 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18: RESEARCH.md check: Lloyd at Flanvel Tower (Disc 3) is the encounter; HP 6,000; basic Punch Slash, signature Four Pillar Spell Dome (opener + last gasp), other moves left out; hero Lv35 with Disc 3 gear, Madness Hero addition level 5; solo hero.
 - 2026-10-18: Madness Hero hit count questioned ("more than 5 hits"); retail data re-read: 6 damage hits from 5 presses. Kept at 6; speed to be judged by feel.
 - 2026-10-18: Counters added as a deliberate change, modelled on Expedition 33's dodge and parry (RESEARCH.md "Dodge and parry"). The details there are my calls until the user plays them.
-- 2026-10-18: Lloyd's stats +100% for a solo fight (the original is 3 heroes). Applied to AT, DF, MAT, MDF; HP and speed pending the user's answer to the squared-AT warning in RESEARCH.md.
+- 2026-10-18: Correction: the +100% stats are for **Rhen** (the player), not Vael: all six stats doubled. (I had applied it to Vael by mistake.)
+- 2026-10-18: Cut Vael's mid-chain counter during Frenzy Chain; dodge / parry stays on Vael's own attacks.
+- 2026-10-18: Exact numbers matter less than feel: the player wins after **7 perfect Frenzy Chains**. Vael's HP set to 3,300 to hit that (target `perfectChainsToWin: 7` in `src/duel/data.js`).

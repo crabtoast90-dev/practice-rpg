@@ -180,10 +180,9 @@ Worked example (Dart Lv35 with the gear below, AT 119, DF 130):
 2. Madness Hero: you remembered more than 5 hits. The retail data has **6 damage hits from 5 presses** (re-read in SC `LodAdditions.java`: six hit records), so we keep 6. The animation may show more sword swings than damage hits. The speed (0.4 s between the last three presses) is straight from the same records, so it stays unless the 20 ticks/s reading is wrong; to be judged by feel in D2.
 3. Counters: **yes, as a deliberate change**, modelled on Expedition 33's dodge and parry (section below).
 4. Moves: Punch Slash basic + Four Pillar Dome signature, the rest left out (checked).
-5. Level 35, Disc 3 gear, Madness Hero level 5 (checked). Lloyd's stats **+100%** because the original is 3 heroes vs him; see the warning below.
+5. Level 35, Disc 3 gear, Madness Hero level 5 (checked). **Rhen's** stats +100% (all six), because the original fight is 3 heroes vs Lloyd.
 6. Solo hero (checked).
-
-**Warning on +100%:** monster damage squares AT, so doubling AT makes his hits **4× as hard**: Punch Slash 246 → **985**, and the Four Pillar opener 985 → **3,938**, which kills Rhen (2,756 HP) on turn one. Doubling DF halves ours: a perfect Madness Hero does **119**, so ~50 perfect attacks for 6,000 HP. For now the data doubles AT, DF, MAT and MDF but not HP or speed (double speed = he acts 2.6 times per Rhen turn). The user decides.
+7. Second round of answers: **cut Vael's mid-chain counter** (Frenzy Chain stays uncounterable, as in the source). The exact numbers matter less than the feel: **the hero should win after 7 perfect Frenzy Chains.** With boosted Rhen (Lv35, AT 238) a perfect chain does 40 × 238 × 5 / 100 = **476**, so Vael's HP is set to **3,300** (6 chains = 2,856, 7 chains = 3,332). Vael's hits on boosted Rhen (DF 260, HP 5,512): Rising Cut ≈ 123, Four Seals ≈ 492.
 
 ## Mode 1: what I needed you to check (answered above)
 
@@ -215,7 +214,7 @@ The user asked for counters modelled on Expedition 33's dodge and parry. Sources
 **How we use it** (my design calls, all in `src/duel/data.js`, all changeable by name):
 - Rhen can **dodge** (wider window) or **parry** (tighter window) every hit of Vael's attacks, timed in ms from the hit's contact moment.
 - **Rising Cut** (his basic) is 1 hit; **Four Seals** (his signature) is 4 hits, one per pillar, each defendable. Parry all of an attack's hits → Rhen's automatic counter-attack.
-- **Vael counters mid-chain** (the LoD-style moment, which the original never does here): at most once per Frenzy Chain, never on the first or last press, with a red flash. Parry it → no damage and the chain continues; dodge it → no damage but the chain ends; miss → he hits Rhen and the chain ends.
+- ~~Vael counters mid-chain~~: cut by the user.
 - A press locks out further presses for 300 ms, so mashing fails.
 - Parries give Rhen SP (our stand-in for Expedition 33's AP).
 
