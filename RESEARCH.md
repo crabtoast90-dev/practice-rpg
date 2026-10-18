@@ -277,6 +277,19 @@ Fires ultimates as soon as they're ready; uses skills while skill points last, o
 
 We drop resistances and crit at first (deterministic, readable numbers); P1 can add crit with the seeded RNG if you want it.
 
+## Rules our sim had to pick (P1, no source: all best guess)
+
+| Rule | Our choice | Confidence |
+|---|---|---|
+| Which enemy auto attacks | the living enemy with the lowest HP (`rules.autoTarget`; can be set to leftmost, closer to the official auto) | best guess |
+| Enemy target | a random living hero, each hero equally likely (the source weights by role; not copied) | best guess |
+| Buff, shield and debuff length | counts down at the end of the holder's own turn (a 1-turn buff lasts through its holder's next turn) | best guess (matches how kit text reads) |
+| Same skill twice | refreshes; different skills stack (Hex Mark and Night Bloom both lower DEF) | best guess |
+| Two shields | not added together: the bigger one stays, length refreshed | best guess |
+| Debuff on a damaging move | lands after that move's hit, so it softens the next hits | best guess |
+| Enemy hit | 100% of its ATK per blow (`rules.enemyHit`), through the same DEF multiplier; no crits | our simplification |
+| DEF stat | only feeds shields; damage uses the level-based DEF multiplier above | our simplification |
+
 ## Role references (real characters → our four)
 
 | Role | Real examples (base speed, max energy) | Typical numbers | Ours |

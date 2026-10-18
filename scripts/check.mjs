@@ -7,7 +7,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PARTY } from '../src/party/data.js';
-import { createParty, timeline } from '../src/party/sim.js';
+import { createParty, timeline, runFight } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
 import { createDuel } from '../src/duel/sim.js';
 
@@ -28,6 +28,13 @@ const log = [];
 const summaries = [];
 mkdirSync(OUT, { recursive: true });
 for (const old of readdirSync(RUNS).filter((f) => /^\d{4}-/.test(f)).sort().slice(0, -KEEP)) rmSync(join(RUNS, old), { recursive: true, force: true });
+
+// Node determinism: the same seed must give the same party fight, event for event.
+for (const seed of [SEED, 2, 3]) {
+  const [x, y] = [runFight(PARTY, seed), runFight(PARTY, seed)];
+  if (JSON.stringify(x.events) !== JSON.stringify(y.events)) failures.push(`[node] party seed ${seed}: two runs differ`);
+  else summaries.push(`[node] party seed ${seed} auto fight twice: identical (${x.result}, ${x.turns} turns, ${x.events.length} events)`);
+}
 
 let server;
 let base = URL_ARG;
