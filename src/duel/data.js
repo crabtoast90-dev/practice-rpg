@@ -17,7 +17,10 @@ export const DUEL = {
   rival: {
     name: 'Vael', model: 'rival',
     encounter: 'Flanvel Tower (Disc 3)',
-    hp: 6000, atk: 80, def: 100, mat: 65, mdf: 150, spd: 65,
+    hp: 6000, atk: 80, def: 100, mat: 65, mdf: 150, spd: 65, // source values (HP 6000 checked by the user)
+    // User call 2026-10-18: +100% stats because the original fight is 3 heroes vs Lloyd.
+    // Applied on top of the source values above; HP and speed left out pending the user's answer.
+    soloBoost: { mult: 2, stats: ['atk', 'def', 'mat', 'mdf'] },
     basic: { name: 'Rising Cut', mult: 1 }, // Punch Slash
     signature: { name: 'Four Seals', mult: 4, opener: true, lastGasp: true }, // Four Pillar Spell Dome
   },
