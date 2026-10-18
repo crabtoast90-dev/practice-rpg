@@ -41,6 +41,9 @@ export function createParty(data, seed = 1, wave = 0) {
     elapsed: 0, // action value passed since the fight began
     turns: 0, // turns taken by anyone (ultimates are extra actions, not turns)
     ultQueue: [], // heroes whose ultimate is ready and waiting to cut in, first-ready first
+    auto: true, // auto-battle on: heroes follow their rules and fire ultimates when full
+    actions: 0, // steps resolved so far (turns and ultimates)
+    log: [], // every player command, stamped with the step it came before (replay() reruns it)
     result: null, // 'win' | 'lose' | 'draw'
     events: [],
     stats: Object.fromEntries(data.lineup.map((id) => [id, { turns: 0, damage: 0, ultimates: 0, wantedSkill: 0, starved: 0 }])),
@@ -136,8 +139,17 @@ const wantsUltimate = (data, id) => data.heroes[id].auto.some((t) => parseRule(t
 
 // Resolve one action: a queued ultimate if any, else the next turn on the timeline.
 // command (optional, for manual play later) = { action, target } for the hero whose turn it is.
+// Returns null without acting when auto is off and a hero is waiting for a command.
 export function step(data, battle, command) {
   if (battle.result) return [];
+  const waiting = waitingFor(battle);
+  if (waiting && !command) return null;
+  if (command) {
+    if (!waiting || !validTurn(data, battle, waiting, command)) throw new Error(`party: turn command not valid now: ${JSON.stringify(command)}`);
+    command = { action: command.action, target: command.target ?? null, rule: 'manual' };
+    battle.log.push({ at: battle.actions, type: 'turn', action: command.action, target: command.target });
+  }
+  battle.actions++;
   const from = battle.events.length;
   const emit = (e) => battle.events.push({ at: r(battle.elapsed), ...e });
 
@@ -149,8 +161,7 @@ export function step(data, battle, command) {
     return battle.events.slice(from);
   }
 
-  const order = battle.units.map((u, i) => ({ u, i, av: u.av, side: u.side })).filter((x) => x.u.hpNow > 0).sort(byTurnOrder);
-  const actor = order[0].u;
+  const actor = nextActor(battle);
   const passed = actor.av;
   battle.elapsed += passed;
   for (const u of battle.units) if (u.hpNow > 0) u.av = Math.max(0, u.av - passed);
@@ -308,12 +319,79 @@ function afterAction(data, battle, emit) {
     battle.units = [...battle.units.filter((u) => u.side === 'hero'), ...spawnEnemies(data, battle.wave)];
     emit({ type: 'wave', wave: battle.wave, enemies: alive(battle, 'enemy').map((e) => e.id) });
   }
+  if (battle.auto) queueAutoUltimates(data, battle, emit);
+}
+function queueAutoUltimates(data, battle, emit) {
   for (const h of alive(battle, 'hero')) {
     if (h.energy >= h.maxEnergy && !battle.ultQueue.includes(h.id) && wantsUltimate(data, h.id)) {
       battle.ultQueue.push(h.id);
       emit({ type: 'ultimateReady', target: h.id });
     }
   }
+}
+
+// ---------- player commands (manual play) ----------
+// The same commands auto uses: a turn is { action: 'basic' | 'skill', target }, an
+// ultimate cuts in after the current action. Every accepted command goes in battle.log.
+
+const nextActor = (battle) => battle.units.map((u, i) => ({ u, i, av: u.av, side: u.side })).filter((x) => x.u.hpNow > 0).sort(byTurnOrder)[0]?.u;
+
+// The hero whose turn needs a command (auto off, nothing cutting in), else null.
+export function waitingFor(battle) {
+  if (battle.result || battle.auto || battle.ultQueue.length) return null;
+  const u = nextActor(battle);
+  return u?.side === 'hero' ? u.id : null;
+}
+
+// What the waiting hero may do: each move, whether it is allowed, and who it can aim at.
+export function turnOptions(data, battle, heroId) {
+  const kit = data.heroes[heroId];
+  return ['basic', 'skill'].map((action) => {
+    const move = kit[action];
+    const pool = move.target === 'ally' ? alive(battle, 'hero') : move.target === 'single' || move.target === 'blast' ? alive(battle, 'enemy') : [];
+    const enabled = action === 'basic' || battle.skillPoints >= data.rules.skillPoints.skillCost;
+    return { action, name: move.name, target: move.target, enabled, targets: pool.map((u) => u.id) };
+  });
+}
+function validTurn(data, battle, heroId, cmd) {
+  const opt = turnOptions(data, battle, heroId).find((o) => o.action === cmd.action);
+  return !!opt && opt.enabled && (!opt.targets.length || cmd.target == null || opt.targets.includes(cmd.target));
+}
+
+// Commands between steps: { type: 'auto', on } or { type: 'ultimate', hero }.
+// Returns the events they cause, or null if refused (e.g. energy not full).
+export function command(data, battle, cmd) {
+  if (battle.result) return null;
+  const from = battle.events.length;
+  const emit = (e) => battle.events.push({ at: r(battle.elapsed), ...e });
+  if (cmd.type === 'auto') {
+    battle.auto = !!cmd.on;
+    battle.log.push({ at: battle.actions, type: 'auto', on: battle.auto });
+    emit({ type: 'auto', on: battle.auto });
+    if (battle.auto) queueAutoUltimates(data, battle, emit);
+  } else if (cmd.type === 'ultimate') {
+    const h = find(battle, cmd.hero);
+    if (!h || h.side !== 'hero' || h.hpNow <= 0 || h.energy < h.maxEnergy || battle.ultQueue.includes(h.id)) return null;
+    battle.ultQueue.push(h.id);
+    battle.log.push({ at: battle.actions, type: 'ultimate', hero: h.id });
+    emit({ type: 'ultimateReady', target: h.id, manual: true });
+  } else return null;
+  return battle.events.slice(from);
+}
+
+// Rerun a fight from its seed and command log (how Node checks a browser fight).
+export function replay(data, seed, log) {
+  const battle = createParty(data, seed, 0);
+  let i = 0;
+  while (!battle.result) {
+    while (i < log.length && log[i].at === battle.actions && log[i].type !== 'turn') {
+      const c = log[i++];
+      command(data, battle, c.type === 'auto' ? { type: 'auto', on: c.on } : { type: 'ultimate', hero: c.hero });
+    }
+    const turn = i < log.length && log[i].at === battle.actions && log[i].type === 'turn' ? log[i++] : null;
+    if (step(data, battle, turn && { action: turn.action, target: turn.target }) === null) break; // waiting, log ran out
+  }
+  return battle;
 }
 function end(battle, result, emit) {
   battle.result = result;

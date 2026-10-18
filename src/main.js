@@ -208,7 +208,7 @@ function stateText() {
   }
   if (screen === 'party') {
     const p = partyView.state();
-    lines.push(`party wave ${p.wave + 1}: skill points ${p.skillPoints}/${PARTY.rules.skillPoints.max}; ${p.applied} events played at ${p.speed}x; ${p.result ? `result: ${p.result}` : p.now ? `acting: ${p.now}` : 'starting'}${p.banner ? `; banner "${p.banner.text}"` : ''}`);
+    lines.push(`party wave ${p.wave + 1}: skill points ${p.skillPoints}/${PARTY.rules.skillPoints.max}; ${p.applied} events played at ${p.speed}x; auto ${p.auto ? 'on' : 'off'}; ${p.result ? `result: ${p.result}` : p.awaiting ? `waiting for ${p.awaiting.hero}'s choice` : p.now ? `acting: ${p.now}` : 'starting'}${p.banner ? `; banner "${p.banner.text}"` : ''}`);
     for (const u of p.units) lines.push(`  ${u.side} ${u.name}: HP ${u.hpNow}/${u.hp}${u.shield ? `, shield ${u.shield}` : ''}${u.side === 'hero' ? `, energy ${u.energy}` : ''}${u.alive ? '' : ' (down)'}`);
     lines.push(`timeline: ${partyView.timeline().map((t) => (t.now ? `${t.id} (now)` : t.ultimate ? `${t.id} (ultimate)` : `${t.name}@${t.at}`)).join(', ')}`);
   }

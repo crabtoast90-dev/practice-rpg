@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createParty, step, timeline, fightDigest } from '../party/sim.js';
+import { createParty, step, command, waitingFor, turnOptions, timeline, fightDigest } from '../party/sim.js';
 
 // Party fight on screen. The sim decides everything; this file asks it for one
 // action at a time and plays that action's events back with timing: animations,
@@ -26,6 +26,9 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
     banner: null, // { kind: 'ultimate' | 'wave', text }
     result: null,
     applied: 0, // events played so far
+    auto: true,
+    awaiting: null, // { hero, options } when auto is off and a hero's turn needs a choice
+    picking: null, // the move chosen while its target is being picked
   };
   const remember = (u) => shown.units.set(u.id, { id: u.id, name: u.name, side: u.side, kind: u.kind ?? u.id, hp: u.hp, hpNow: u.hpNow, energy: u.energy ?? 0, maxEnergy: u.maxEnergy ?? 0, shield: 0, alive: true, model: u.model });
   battle.units.forEach(remember);
@@ -50,8 +53,9 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
   const floaters = []; // { el, id, born }
   let push = { id: null, until: -1, amount: 0 };
 
-  function schedule() {
-    const events = step(data, battle);
+  function schedule(turn) {
+    const events = step(data, battle, turn);
+    if (!events) return;
     const snap = timeline(data, battle, 8);
     events.forEach((ev, i) => queue.push({ ev, snap, hold: holdFor(ev, events[i + 1]) }));
     queue.push({ ev: { type: 'pause' }, hold: battle.result ? 0 : pace.recover });
@@ -174,11 +178,58 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
     speedBtn.textContent = `${speed}x`;
   };
   $('again').onclick = () => onRestart();
+
+  // Player commands: the same ones auto uses, sent to the sim.
+  function applyNow(events) { for (const ev of events ?? []) apply({ ev, snap: shown.upcoming }); }
+  function setAuto(on) {
+    applyNow(command(data, battle, { type: 'auto', on }));
+    shown.auto = on;
+    if (on) { shown.awaiting = null; shown.picking = null; }
+  }
+  function pressUltimate(id) {
+    const evs = command(data, battle, { type: 'ultimate', hero: id });
+    if (!evs) return;
+    applyNow(evs);
+    shown.awaiting = null; // the ultimate cuts in first; the turn comes back after it
+    shown.picking = null;
+  }
+  function takeTurn(action, target) {
+    const w = shown.awaiting;
+    if (!w) return;
+    shown.awaiting = null;
+    shown.picking = null;
+    nextAt = clock;
+    schedule({ action, target });
+  }
+  function chooseMove(action) {
+    const opt = shown.awaiting?.options.find((o) => o.action === action);
+    if (!opt?.enabled) return;
+    if (opt.targets.length) shown.picking = opt;
+    else takeTurn(action, null);
+  }
+  const autoBtn = $('auto');
+  autoBtn.disabled = false;
+  autoBtn.onclick = () => setAuto(!shown.auto);
+  $('actions').onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    if (b.dataset.move) chooseMove(b.dataset.move);
+    else if (b.dataset.target) takeTurn(shown.picking.action, b.dataset.target);
+    else if (b.dataset.back !== undefined) shown.picking = null;
+  };
+  $('cards').onclick = (e) => {
+    const b = e.target.closest('button.ult');
+    if (b && !b.disabled) pressUltimate(b.closest('.card').dataset.id);
+  };
+  $('rules-btn').onclick = () => { $('rules').hidden = !$('rules').hidden; };
+  $('rules').innerHTML = `<div class="title">Auto rules <span>(top rule first; change them by name in the party data file)</span></div>` +
+    data.lineup.map((id) => `<div class="hero-rules"><b>${data.heroes[id].name}</b><ol>${data.heroes[id].auto.map((r) => `<li>${r}</li>`).join('')}</ol></div>`).join('');
+  const ultReady = (u) => u.alive && u.energy >= u.maxEnergy && !shown.ults.includes(u.id) && !shown.result;
   const pct = (now, max) => `${max ? Math.max(0, Math.min(100, (100 * now) / max)) : 0}%`;
   const heroIds = data.lineup;
   $('cards').innerHTML = heroIds.map((id) => {
     const h = data.heroes[id];
-    return `<div class="card panel" data-id="${id}"><div class="name">${h.name}</div><div class="role">${h.role}</div><div class="bar hp"><i></i></div><div class="hp-text"></div><div class="energy"><i></i></div></div>`;
+    return `<div class="card panel" data-id="${id}"><div class="name">${h.name}</div><div class="role">${h.role}</div><div class="bar hp"><i></i></div><div class="hp-text"></div><div class="energy"><i></i></div><button class="ult" disabled>Ultimate</button></div>`;
   }).join('');
 
   const setHtml = (el, html) => { if (el.innerHTML !== html) el.innerHTML = html; };
@@ -202,6 +253,9 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
       const full = u.alive && u.energy >= u.maxEnergy;
       card.querySelector('.energy').classList.toggle('ready', full);
       card.querySelector('.energy i').style.width = pct(u.energy, u.maxEnergy);
+      const ult = card.querySelector('.ult');
+      ult.disabled = !ultReady(u);
+      ult.classList.toggle('lit', !ult.disabled);
     }
     const banner = $('party-banner');
     banner.hidden = !shown.banner;
@@ -213,8 +267,27 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
       banner.style.opacity = String(k);
       banner.style.transform = `scaleX(${0.2 + 0.8 * k})`;
     }
+    autoBtn.textContent = shown.auto ? 'Auto ON' : 'Auto OFF';
+    autoBtn.classList.toggle('on', shown.auto);
+    drawActions();
     $('party-end').hidden = !shown.result;
     if (shown.result) $('party-result').textContent = { win: 'Victory', lose: 'Defeat', draw: 'Time up' }[shown.result];
+  }
+  // Manual turn: pick a move, then (if it aims) a target.
+  function drawActions() {
+    const box = $('actions');
+    const w = shown.awaiting;
+    box.hidden = !w;
+    if (!w) return setHtml(box, '');
+    const who = (id) => shown.units.get(id)?.name ?? id;
+    let html = `<div class="title">${who(w.hero)}'s turn</div>`;
+    if (shown.picking) {
+      html += `<div class="row">${shown.picking.targets.map((t) => `<button data-target="${t}">${who(t)}</button>`).join('')}<button data-back class="back">Back</button></div><div class="hint">${shown.picking.name}: pick a target</div>`;
+    } else {
+      html += `<div class="row">${w.options.map((o) => `<button data-move="${o.action}" ${o.enabled ? '' : 'disabled'}><b>${o.action === 'basic' ? 'Basic' : 'Skill'}</b><span>${o.name}</span></button>`).join('')}</div>`;
+      if (!w.options[1].enabled) html += `<div class="hint">No skill points: Basic earns one.</div>`;
+    }
+    setHtml(box, html);
   }
   // Enemy name plates (hp bars over their heads).
   function drawPlates() {
@@ -236,7 +309,16 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
     clock += dt * 1000 * speed;
     for (;;) {
       if (!queue.length) {
-        if (battle.result || clock < nextAt) break;
+        if (battle.result || clock < nextAt || shown.awaiting) break;
+        const hero = waitingFor(battle);
+        if (hero) {
+          // Manual: the hero steps up and the screen waits for a choice.
+          shown.awaiting = { hero, options: turnOptions(data, battle, hero) };
+          shown.now = hero;
+          shown.upcoming = timeline(data, battle, 9).slice(1);
+          break;
+        }
+        nextAt = clock;
         schedule();
       }
       if (clock < nextAt) break;
@@ -307,6 +389,8 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
       $('plates').innerHTML = '';
       $('party-end').hidden = $('party-banner').hidden = true;
       speedBtn.onclick = null;
+      autoBtn.onclick = null;
+      $('actions').hidden = $('rules').hidden = true;
     },
     // For the check and stateText: what the screen shows now.
     state: () => ({
@@ -320,6 +404,11 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
       speed,
       units: [...shown.units.values()].map((u) => ({ id: u.id, name: u.name, side: u.side, hpNow: u.hpNow, hp: u.hp, shield: u.shield, energy: u.energy, alive: u.alive })),
       digest: shown.result ? fightDigest(battle.events) : null,
+      auto: shown.auto,
+      awaiting: shown.awaiting && { hero: shown.awaiting.hero, picking: shown.picking?.action ?? null, options: shown.awaiting.options },
+      ultReady: [...shown.units.values()].filter((u) => u.side === 'hero' && ultReady(u)).map((u) => u.id),
+      log: battle.log,
+      nowSide: shown.now ? shown.units.get(shown.now)?.side ?? null : null,
     }),
     timeline: () => {
       const rows = [];

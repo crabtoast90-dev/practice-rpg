@@ -7,7 +7,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PARTY } from '../src/party/data.js';
-import { createParty, timeline, runFight, fightDigest } from '../src/party/sim.js';
+import { createParty, timeline, runFight, fightDigest, replay } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
 import { applyTune } from '../src/tune.js';
 import { createDuel, heroTurn, rivalTurn, rivalIntent, playFight, perfectChainsToFall, heroPhysical, heroMagic, rivalPhysical } from '../src/duel/sim.js';
@@ -299,6 +299,60 @@ async function playPartyFight(page, name, click) {
   await advance(page, 100);
   s = await state(page);
   if (s.party.result || s.party.applied !== 0 || s.party.wave !== 0) failures.push(`[${name}] Play again did not restart the fight`);
+  await playManualFight(page, name, click);
+}
+
+// Party, auto off: the rules panel, then a scripted manual fight (Basic unless 3+ skill
+// points, first target) with an ultimate pressed during an enemy's turn; the browser's
+// command log replayed in Node must give the same fight.
+async function playManualFight(page, name, click) {
+  await click('#rules-btn');
+  await advance(page, 50);
+  const rulesText = await page.textContent('#rules');
+  for (const id of PARTY.lineup) if (!PARTY.heroes[id].auto.every((r) => rulesText.includes(r))) failures.push(`[${name}] rules panel is missing ${PARTY.heroes[id].name}'s rules`);
+  await shot(page, name, '6-rules');
+  await click('#rules-btn');
+  await click('#auto');
+  await click('#speed');
+  let s = await state(page);
+  if (s.party.auto) failures.push(`[${name}] Auto button did not switch auto off`);
+  let enemyCutIn = false;
+  let shotTurn = false;
+  let shotCut = false;
+  let still = 0;
+  let last = -1;
+  for (let i = 0; i < 3000; i++) {
+    await advance(page, 250);
+    s = await state(page);
+    const p = s.party;
+    if (p.result) break;
+    if (p.applied === last && !p.awaiting && ++still > 24) { failures.push(`[${name}] manual fight stuck at event ${last}`); break; }
+    if (p.applied !== last || p.awaiting) still = 0;
+    last = p.applied;
+    if (p.ultReady.length && p.nowSide === 'enemy' && !p.awaiting) {
+      await click(`.card[data-id="${p.ultReady[0]}"] .ult`);
+      if (!enemyCutIn) summaries.push(`[${name}] manual: ${p.ultReady[0]}'s ultimate pressed during ${p.now}'s turn`);
+      enemyCutIn = true;
+      continue;
+    }
+    if (enemyCutIn && !shotCut && p.banner?.kind === 'ultimate') { shotCut = true; await shot(page, name, '8-manual-cutin'); }
+    if (!p.awaiting) continue;
+    if (p.ultReady.length && enemyCutIn) { await click(`.card[data-id="${p.ultReady[0]}"] .ult`); continue; }
+    if (!shotTurn) { shotTurn = true; await shot(page, name, '7-manual-turn'); }
+    const skill = p.awaiting.options.find((o) => o.action === 'skill');
+    const move = skill.enabled && p.skillPoints >= 3 ? 'skill' : 'basic';
+    await click(`#actions button[data-move="${move}"]`);
+    await advance(page, 50);
+    if ((await state(page)).party.awaiting?.picking) await click('#actions button[data-target]');
+  }
+  s = await state(page);
+  if (!s.party.result) return failures.push(`[${name}] manual fight did not finish`);
+  if (!enemyCutIn) failures.push(`[${name}] manual fight never cut an ultimate into an enemy's turn`);
+  const turns = s.party.log.filter((c) => c.type === 'turn').length;
+  const node = replay(PARTY, SEED, s.party.log);
+  const nodeDigest = fightDigest(node.events);
+  if (node.result !== s.party.result || nodeDigest !== s.party.digest) failures.push(`[${name}] manual fight differs from Node replay (browser ${s.party.result} ${s.party.digest}, Node ${node.result} ${nodeDigest})`);
+  else summaries.push(`[${name}] manual fight: ${s.party.result} after ${turns} chosen turns and ${s.party.log.filter((c) => c.type === 'ultimate').length} pressed ultimates; Node replay of the commands matches (${nodeDigest})`);
 }
 
 // D2: scripted presses through the timing UI on the test clock. Frenzy Chain at -40, 0
