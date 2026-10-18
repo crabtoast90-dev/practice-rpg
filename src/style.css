@@ -65,6 +65,19 @@ h1 { margin: 0; font: 700 44px Georgia, serif; letter-spacing: 1px; color: #f4d5
 #calib-box { width: 120px; height: 120px; border: 3px solid #f6f2e4; }
 #calib-box[data-on="1"] { background: #fff; }
 
+#floats { position: absolute; inset: 0; pointer-events: none; }
+.float { position: absolute; left: 0; top: 0; font: 800 24px Georgia, serif; text-shadow: 0 2px 0 #000, 0 0 6px #000; white-space: nowrap; }
+.float.dmg { color: #fff; }
+.float.heal { color: #8ef59a; }
+.float.sp { color: #ffd36a; }
+.float.word { color: #ffe08a; font-size: 20px; }
+.menu .off { opacity: 0.45; text-decoration: line-through; }
+.menu .ready { box-shadow: 0 0 10px #ffd36a; border-color: #ffd36a; }
+#result { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); text-align: center; padding: 18px 28px; pointer-events: auto; }
+#result-title { font: 800 48px Georgia, serif; color: #f4d58d; text-shadow: 0 3px 0 #4a2c10; margin-bottom: 10px; }
+#result[data-result="lose"] #result-title { color: #c9c9d6; text-shadow: 0 3px 0 #222; }
+#result button { padding: 10px 18px; border-radius: 8px; border: 1px solid #c79a4a; background: rgba(60, 44, 20, 0.95); font-weight: 700; }
+
 /* Party */
 .timeline { position: absolute; left: 12px; top: calc(max(10px, env(safe-area-inset-top)) + 42px); width: 150px; padding: 6px; }
 .timeline div { white-space: nowrap; gap: 6px; padding: 3px 6px; margin: 2px 0; border-radius: 3px; font-size: 13px; display: flex; justify-content: space-between; }

@@ -102,6 +102,7 @@ export const DUEL = {
     latencyFrames: 1, // the input-to-screen delay estimate, in frames, until the player calibrates
     calibration: { flashes: 8, gapMs: 700, skip: 2 }, // tap-to-the-flash; the first `skip` taps are warm-up
     debugPresses: 10,
+    floatMs: 1100, floatRisePx: 40, floatSpreadPx: 34, // damage numbers and words rise this far over their life
   },
 
   // Battle menu, in the source game's order. Escape is greyed out against a boss.

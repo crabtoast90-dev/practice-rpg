@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { PARTY } from '../src/party/data.js';
 import { createParty, timeline, runFight, fightDigest } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
+import { applyTune } from '../src/tune.js';
 import { createDuel, heroTurn, rivalTurn, rivalIntent, playFight, perfectChainsToFall, heroPhysical, rivalPhysical } from '../src/duel/sim.js';
 
 const RUNS = 'check-output';
@@ -337,6 +338,73 @@ async function timingWalk(page, name, click) {
   summaries.push(`[${name} timing] chain ${chainLog.map(([m, v]) => `${m ?? 'none'}:${v}`).join(' ')} → 4 hits, ${hurt} damage; Four Seals ${defLog.map(([m, v]) => `${m ?? 'none'}:${v}`).join(' ')} → Rhen took ${node.hero.hp - node.hero.hpNow}; SP ${node.hero.sp}; matches Node`);
 }
 
+// D3: whole fights through the menu. Perfect: every press and parry on the frame, with
+// Escape (refused), a Spirit Potion and a Guard on the way, to Victory. No presses, against
+// a Vael tuned stronger (?tune), to Defeat. Both must equal Node replaying the same inputs.
+const DEFEAT_TUNE = 'rival.atk:300';
+async function duelFight(page, name, click, perfect) {
+  const data = perfect ? DUEL : applyTune(DUEL, DEFEAT_TUNE);
+  const fail = (msg) => failures.push(`[${name}] ${msg}`);
+  let heroTurns = 0;
+  let shots = 0;
+  for (let guard = 0; guard < 4000; guard++) {
+    const s = await state(page);
+    const d = s.duel;
+    if (d.phase === 'over') break;
+    if (d.phase === 'menu' && d.next === 'hero') {
+      heroTurns++;
+      if (perfect && heroTurns === 1) {
+        await click('#duel-menu [data-cmd="escape"]');
+        await advance(page, 20);
+        const after = await state(page);
+        if (after.duel.next !== 'hero' || !after.duel.floats.some((f) => f.includes("Can't escape"))) fail('Escape was not refused on screen');
+        await click('#duel-menu [data-cmd="items"]');
+        await advance(page, 20);
+        await shot(page, name, '1-items');
+        await click('#duel-menu [data-item="Spirit Potion"]');
+      } else if (perfect && heroTurns === 2) await click('#duel-menu [data-cmd="guard"]');
+      else await click('#duel-menu [data-cmd="attack"]');
+      await advance(page, 20);
+      continue;
+    }
+    const t = d.timing;
+    if (perfect && t.phase === 'addition') {
+      await advanceTo(page, t.perfectAt);
+      await page.evaluate(([at]) => window.__game.press('main', at), [t.perfectAt]);
+      await advance(page, 120);
+      if (shots++ === 3) await shot(page, name, '2-numbers');
+      continue;
+    }
+    if (perfect && t.phase === 'defense') {
+      for (const at of t.contacts) {
+        await advanceTo(page, at);
+        await page.evaluate(([x]) => window.__game.press('main', x), [at]);
+      }
+      await advance(page, 300);
+      continue;
+    }
+    await advance(page, 200);
+  }
+  const s = await state(page);
+  const want = perfect ? 'win' : 'lose';
+  if (s.duel.phase !== 'over' || s.duel.result !== want) return fail(`expected ${want}, got phase ${s.duel.phase} result ${s.duel.result}`);
+  if (!(await page.isVisible('#result'))) fail('no Victory / Defeat banner');
+  const title = await page.textContent('#result-title');
+  if (title !== (perfect ? 'Victory' : 'Defeat')) fail(`banner reads ${title}`);
+  await advance(page, 1500);
+  await shot(page, name, perfect ? '3-victory' : '3-defeat');
+  const node = createDuel(data, SEED);
+  for (const inp of s.duel.inputs) inp.who === 'hero' ? heroTurn(data, node, inp.command) : rivalTurn(data, node, inp.defense);
+  const pick = (x) => JSON.stringify({ hero: x.hero, rival: x.rival, next: x.next, result: x.result });
+  if (pick(s.duel) !== pick(node)) fail(`browser duel differs from Node: ${pick(s.duel)} vs ${pick(node)}`);
+  summaries.push(`[${name}] ${title} after ${node.hero.turns} Rhen turns (${node.tally.perfectChains} perfect chains, ${node.tally.parries} parries), Rhen HP ${node.hero.hpNow}/${node.hero.hp}, Vael HP ${node.rival.hpNow}; matches Node`);
+  // Play again starts a fresh duel.
+  await click('#play-again');
+  await advance(page, 300);
+  const again = await state(page);
+  if (again.duel?.phase !== 'menu' || again.duel.rival.hpNow !== again.duel.rival.hp) fail('Play again did not start a fresh duel');
+}
+
 const DEVICES = {
   laptop: [{ viewport: { width: 1280, height: 720 } }, (page) => (sel) => page.click(sel)],
   phone: [{ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, (page) => (sel) => page.tap(sel)],
@@ -344,6 +412,8 @@ const DEVICES = {
 for (const [name, [opts, input]] of Object.entries(DEVICES)) {
   await run(name, opts, (page) => walk(page, name, input(page)));
   await run(`${name}-timing`, opts, (page) => timingWalk(page, `${name}-timing`, input(page)), '&debug&mode=duel');
+  await run(`${name}-victory`, opts, (page) => duelFight(page, `${name}-victory`, input(page), true), '&mode=duel');
+  await run(`${name}-defeat`, opts, (page) => duelFight(page, `${name}-defeat`, input(page), false), `&mode=duel&tune=${DEFEAT_TUNE}`);
 }
 
 await browser.close();

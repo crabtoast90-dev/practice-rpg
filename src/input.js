@@ -4,6 +4,8 @@
 export function createInput({ keys, onPress, stamp }) {
   const byCode = {};
   for (const [button, codes] of Object.entries(keys)) for (const c of codes) byCode[c] = button;
+  // Space / X never activate a focused button: they're the press keys.
+  addEventListener('keyup', (e) => { if (byCode[e.code]) e.preventDefault(); });
   addEventListener('keydown', (e) => {
     const button = byCode[e.code];
     if (!button || e.repeat) return;

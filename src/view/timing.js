@@ -33,7 +33,7 @@ export function createTiming({ data, root, now, latency, anchor }) {
 
   function startAddition(onDone, onHit) {
     seq = { kind: 'addition', t0: now(), k: 0, presses: [], onDone, onHit };
-    onHit?.(1); // the first hit always lands
+    onHit?.(1, []); // the first hit always lands
   }
   function endAddition() {
     const s = seq;
@@ -51,7 +51,8 @@ export function createTiming({ data, root, now, latency, anchor }) {
     s.presses[k] = press;
     flash = { kind: j.verdict === 'success' ? 'success' : j.verdict === 'early' ? 'early' : 'late', until: now() + ui.flashMs };
     if (j.verdict !== 'success') { say(j.verdict === 'wrongButton' ? 'Wrong button' : j.verdict === 'early' ? 'Early' : 'Late', 'miss', 'rival'); return endAddition(); }
-    s.onHit?.(k + 2);
+    s.onHit?.(k + 2, s.presses.slice(0, k + 1));
+    if (seq !== s) return; // the chain was finished early
     s.k += 1;
     if (s.k === perfectAt.length) { say('Perfect!', 'good', 'rival'); endAddition(); }
   }
@@ -80,7 +81,7 @@ export function createTiming({ data, root, now, latency, anchor }) {
     hit.done = true;
     if (!hit.said) sayDefense(j.verdict);
     if (j.verdict === 'none') record({ what: `${s.intent.name} ${h + 1}`, button: null, ms: null, verdict: 'none' });
-    s.onContact?.(h + 1, j.verdict);
+    s.onContact?.(h + 1, j.verdict, s.hits.slice(0, h + 1).map((x) => (x.presses.length ? x.presses : null)));
   }
   function sayDefense(verdict) {
     const words = { parried: ['Parry!', 'good'], dodged: ['Dodge', 'ok'], early: ['Early', 'miss'], late: ['Late', 'miss'], none: ['Hit', 'miss'] };
@@ -185,6 +186,8 @@ export function createTiming({ data, root, now, latency, anchor }) {
       const hit = seq.hits[seq.h];
       return { phase: 'defense', move: seq.intent.name, hit: seq.h + 1, contactAt: hit?.contact ?? null, contacts: seq.hits.map((h) => h.contact), log: [...log] };
     },
+    // End the chain now (Vael fell mid-chain): the presses so far go to the sim.
+    finish() { if (seq?.kind === 'addition') endAddition(); },
     verdictText: () => (shown && now() < shown.until ? shown.text : null),
     clear() { seq = null; flash = null; shown = null; draw(); },
   };

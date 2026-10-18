@@ -3,11 +3,12 @@ import { createStage, frameCamera } from './view/stage.js';
 import { createFigures } from './view/units.js';
 import { createClock, STEP } from './clock.js';
 import { createDebugOverlay } from './debug.js';
-import { DUEL } from './duel/data.js';
+import { DUEL as DUEL_DATA } from './duel/data.js';
 import { createDuel } from './duel/sim.js';
 import { createTiming, calibrate } from './view/timing.js';
 import { createDuelView } from './view/duel-view.js';
 import { createInput } from './input.js';
+import { applyTune } from './tune.js';
 import { PARTY } from './party/data.js';
 import { createPartyView } from './view/party-view.js';
 
@@ -16,6 +17,7 @@ import { createPartyView } from './view/party-view.js';
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 const seed = Number(params.get('seed') ?? 1);
+const DUEL = applyTune(DUEL_DATA, params.get('tune')); // ?tune=rival.atk:300 tries numbers by name
 const $ = (id) => document.getElementById(id);
 
 const canvas = $('game');
@@ -97,7 +99,7 @@ function enter(mode) {
     figures.spawn('hero', DUEL.hero.model, { ...stage.spots.hero, height: 1.75 });
     figures.spawn('rival', DUEL.rival.model, { ...stage.spots.rival, height: 1.8 });
     $('duel-hud').hidden = false;
-    duelView = createDuelView({ data: DUEL, battle, figures, timing, later, $ });
+    duelView = createDuelView({ data: DUEL, battle, figures, timing, later, now, anchor, restart: () => enter('duel'), $ });
   } else {
     stage = createStage(scene, 'party', { heroes: PARTY.lineup.length, enemies: Math.max(...PARTY.waves.map((w) => w.length)) });
     partyView = createPartyView({ data: PARTY, seed, figures, stage, onRestart: () => enter('party') });
@@ -175,6 +177,7 @@ function step(dt) {
   runTimers();
   timing.update();
   partyView?.update(dt);
+  duelView?.update();
   figures.update(dt * (partyView?.speed ?? 1));
   showPresses();
 }
@@ -195,6 +198,7 @@ function stateText() {
     const t = timing.info();
     lines.push(`phase: ${duelView.phase()}, next: ${battle.next}${battle.result ? `, result ${battle.result}` : ''}${t.phase ? `; timing ${t.phase} ${t.phase === 'addition' ? `press ${t.press}` : `${t.move} hit ${t.hit}`}` : ''}`);
     for (const p of t.log) lines.push(`  press ${p.what}: ${p.button ?? 'none'} ${p.ms ?? ''} ${p.verdict}`);
+    if (battle.result) lines.push(`result: ${battle.result === 'win' ? 'Victory' : 'Defeat'} after ${battle.hero.turns} Rhen turns`);
     lines.push(`menu: ${menu.map((m) => `${m.label}${m.enabled ? '' : ' (disabled)'}`).join(', ')}`);
   }
   if (screen === 'party') {
@@ -214,7 +218,7 @@ window.__game = {
     framing: stage ? framing() : [],
     timeline: screen === 'party' ? partyView.timeline() : null,
     party: screen === 'party' ? { ...partyView.state(), opening: partyView.opening } : null,
-    duel: screen === 'duel' ? { hero: battle.hero, rival: battle.rival, menu: battle.menu, next: battle.next, result: battle.result, phase: duelView.phase(), timing: timing.info(), verdict: timing.verdictText(), inputs: duelView.inputs } : null,
+    duel: screen === 'duel' ? { hero: battle.hero, rival: battle.rival, menu: battle.menu, next: battle.next, result: battle.result, phase: duelView.phase(), timing: timing.info(), verdict: timing.verdictText(), inputs: duelView.inputs, floats: duelView.floats(), tune: params.get('tune') } : null,
   }),
   stateText,
   enter,
