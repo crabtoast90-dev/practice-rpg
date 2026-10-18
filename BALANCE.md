@@ -1,16 +1,18 @@
 # Balance report
 
-Written by `npm run sim` on 2026-10-18 06:58 UTC. Do not edit by hand.
+Written by `npm run sim` on 2026-10-18 07:16 UTC. Do not edit by hand.
 
 ## Headline
 
 - Duel target **PASSES**: Vael falls to perfect Frenzy Chain number 7 (target 7).
-- Duel win rate: perfect 100% in 6 turns, good player 100% in 7 turns, sloppy 100% in 18 turns, mashing 100% in 35 turns (Rhen's turns, median of 1000 fights each; no Dragoon yet).
+- Duel win rate: perfect 100% in 4 turns, good player 100% in 5 turns, sloppy 100% in 10 turns, mashing 100% in 18 turns (Rhen's turns, median of 1000 fights each; the bot turns Dragoon at 500 SP and Strikes).
 - Party: auto-battle wins 100% of 1000 seeded fights, in 77 turns (1306 action value) on average. Damage share: Brann 53%, Nyx 39%, Sola 2%, Aldric 5%. No targets set yet (PLAN.md P4).
 
 ## Mode 1: Duel
 
-Numbers: RESEARCH.md checked 2026-10-18. Dragoon form is not in the sim yet (PLAN.md D4), so these fights are Frenzy Chains, parries / dodges and Healing Potions only; Dragoon will make every row shorter.
+Numbers: RESEARCH.md checked 2026-10-18. The simulated player Attacks, parries or dodges, drinks a Healing Potion below 35% HP, turns Dragoon once SP reaches 500 and then uses Strike with the same press accuracy.
+
+Dragoon damage on Vael: Strike 809 / 890 / 1051 / 1294 / 1618 for 1-5 strikes; Ember Shot 761 (10 MP), Blast 380 (20 MP), Last Blaze 1142 (30 MP), Crimson Wyrm 1142 (80 MP). A perfect Frenzy Chain is 476.
 
 ### Target: perfect chains to win
 
@@ -18,12 +20,12 @@ A perfect Frenzy Chain does 476 damage. Vael has 3,300 HP. Attacking only, with 
 
 ### Win rate and fight length by press accuracy
 
-player | how they press | defends with | wins | fight length (Rhen turns) | all turns | HP left when winning | hits per chain (of 6) | Dragoon first ready on Rhen turn | parries / dodges per fight
---- | --- | --- | --- | --- | --- | --- | --- | --- | ---
-perfect | every press on the perfect frame | parry | 100% | 6 | 10 | 100% | 5.5 | 2 | 10.0 / 0.0
-good player | spread ±40 ms, 2% no press | parry | 100% | 7 | 12 | 98% | 4.7 | 2 | 10.1 / 0.0
-sloppy | +30 ms off, spread ±90 ms, 8% no press | dodge | 100% | 18 | 30 | 86% | 2.1 | 3 | 0.0 / 12.2
-mashing | -250 ms off, spread ±60 ms, 5 presses 90 ms apart | dodge | 100% | 35 | 58 | 43% | 1.0 | 4 | 0.0 / 3.4
+player | how they press | defends with | wins | fight length (Rhen turns) | all turns | HP left when winning | hits per chain (of 6) | strikes per Strike (of 5) | Dragoon first ready on Rhen turn | parries / dodges per fight
+--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
+perfect | every press on the perfect frame | parry | 100% | 4 | 7 | 100% | 6.0 | 5.0 | 2 | 9.0 / 0.0
+good player | spread ±40 ms, 2% no press | parry | 100% | 5 | 9 | 99% | 5.0 | 3.5 | 2 | 9.1 / 0.0
+sloppy | +30 ms off, spread ±90 ms, 8% no press | dodge | 100% | 10 | 17 | 92% | 2.2 | 1.8 | 3 | 0.0 / 8.8
+mashing | -250 ms off, spread ±60 ms, 5 presses 90 ms apart | dodge | 100% | 18 | 30 | 72% | 1.0 | 1.0 | 4 | 0.0 / 3.3
 
 In plain words: Vael's hits are small against boosted Rhen (Rising Cut 123, Four Seals 492, Rhen has 5,512 HP), so even a masher wins; the press skill decides how long the fight takes, not whether you win. There is no win-rate target yet: tell me one if you want the fight to be losable.
 

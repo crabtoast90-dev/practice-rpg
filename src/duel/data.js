@@ -44,6 +44,8 @@ export const DUEL = {
     spPerLevel: 100, spPerTurn: 100,
     mult: { atk: 1.7, def: 2.5, mat: 1.7, mdf: 2.5 },
     mp: 100,
+    // In Dragoon form the menu is only these (source: D'Attack and Magic).
+    menu: [{ id: 'strike', label: 'Strike' }, { id: 'magic', label: 'Magic' }],
     // The ring: laps in ticks, success window per timed press, damage % by strikes landed.
     ring: { lapTicks: [14, 12, 10, 8], windowTicks: [4, 3, 2, 1], totalPercent: [100, 110, 130, 160, 200] },
     spells: [
@@ -86,8 +88,10 @@ export const DUEL = {
     sloppy: { label: 'sloppy', biasMs: 30, sdMs: 90, missPercent: 8, defend: 'dodge' },
     mashing: { label: 'mashing', biasMs: -250, sdMs: 60, missPercent: 0, defend: 'dodge', mash: { presses: 5, gapMs: 90 } },
   },
-  // The simulated player's choices: Healing Potion below this % HP while any are left, else Attack.
-  bot: { healBelowPercent: 35 },
+  // The simulated player's choices: transform when SP reaches dragoonAtSp (null = never),
+  // Healing Potion below this % HP while any are left, else Attack.
+  // In Dragoon form: cast dragoonSpell while MP lasts (null = always Strike).
+  bot: { healBelowPercent: 35, dragoonAtSp: 500, dragoonSpell: null },
   simFights: 1000,
 
   // The timing UI (D2). Feel numbers, all my calls until the user plays them. Sizes in CSS px.
@@ -103,6 +107,22 @@ export const DUEL = {
     calibration: { flashes: 8, gapMs: 700, skip: 2 }, // tap-to-the-flash; the first `skip` taps are warm-up
     debugPresses: 10,
     floatMs: 1100, floatRisePx: 40, floatSpreadPx: 34, // damage numbers and words rise this far over their life
+  },
+
+  // Dragoon looks (D4), my calls. Colours are hex; times in ms.
+  dragoonUi: {
+    transformMs: 1300, revertMs: 900, // the flash and pause when transforming / turning back
+    glowColor: 0xff6a1a, glowIntensity: 0.45, lightIntensity: 4,
+    wingColor: 0xd8341c, wingScale: 0.75, flapMs: 260,
+    ringPx: 150, dotPx: 18, ringAutoStartMs: 4000, // the ring starts by itself if no start press comes
+    flightMs: 650, burstMs: 350,
+    spells: {
+      default: { color: 0xff8a2a, size: 0.25 },
+      'Ember Shot': { color: 0xff8a2a, size: 0.22 },
+      Blast: { color: 0xffb040, size: 0.35, from: 'sky' },
+      'Last Blaze': { color: 0xff5a1a, size: 0.4 },
+      'Crimson Wyrm': { color: 0xff2a2a, size: 0.7, from: 'sky' },
+    },
   },
 
   // Battle menu, in the source game's order. Escape is greyed out against a boss.

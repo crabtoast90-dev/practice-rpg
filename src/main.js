@@ -7,6 +7,7 @@ import { DUEL as DUEL_DATA } from './duel/data.js';
 import { createDuel } from './duel/sim.js';
 import { createTiming, calibrate } from './view/timing.js';
 import { createDuelView } from './view/duel-view.js';
+import { createDragoonLook } from './view/dragoon.js';
 import { createInput } from './input.js';
 import { applyTune } from './tune.js';
 import { PARTY } from './party/data.js';
@@ -80,6 +81,7 @@ function anchor(id) {
   p.project(camera);
   return { x: ((p.x + 1) / 2) * innerWidth, y: ((1 - p.y) / 2) * innerHeight };
 }
+const look = createDragoonLook(scene, DUEL);
 const timing = createTiming({ data: DUEL, root: $('timing'), now, latency, anchor });
 const input = createInput({
   keys: DUEL.timingUi.keys,
@@ -99,7 +101,7 @@ function enter(mode) {
     figures.spawn('hero', DUEL.hero.model, { ...stage.spots.hero, height: 1.75 });
     figures.spawn('rival', DUEL.rival.model, { ...stage.spots.rival, height: 1.8 });
     $('duel-hud').hidden = false;
-    duelView = createDuelView({ data: DUEL, battle, figures, timing, later, now, anchor, restart: () => enter('duel'), $ });
+    duelView = createDuelView({ data: DUEL, battle, figures, timing, later, now, anchor, restart: () => enter('duel'), look, $ });
   } else {
     stage = createStage(scene, 'party', { heroes: PARTY.lineup.length, enemies: Math.max(...PARTY.waves.map((w) => w.length)) });
     partyView = createPartyView({ data: PARTY, seed, figures, stage, onRestart: () => enter('party') });
@@ -118,6 +120,8 @@ function leave() {
   duelView = null;
   timers = [];
   timing.clear();
+  look.clear();
+  $('flash').style.opacity = '0';
   screen = 'start';
   $('start').hidden = false;
   $('back').hidden = true;
@@ -198,6 +202,7 @@ function stateText() {
     const t = timing.info();
     lines.push(`phase: ${duelView.phase()}, next: ${battle.next}${battle.result ? `, result ${battle.result}` : ''}${t.phase ? `; timing ${t.phase} ${t.phase === 'addition' ? `press ${t.press}` : `${t.move} hit ${t.hit}`}` : ''}`);
     for (const p of t.log) lines.push(`  press ${p.what}: ${p.button ?? 'none'} ${p.ms ?? ''} ${p.verdict}`);
+    if (battle.hero.dragoon) lines.push(`Dragoon form: ${battle.hero.sp / DUEL.dragoon.spPerLevel} turns left, MP ${battle.hero.mp}/${battle.hero.mpMax}, wings ${duelView.wings() ? 'on' : 'off'}`);
     if (battle.result) lines.push(`result: ${battle.result === 'win' ? 'Victory' : 'Defeat'} after ${battle.hero.turns} Rhen turns`);
     lines.push(`menu: ${menu.map((m) => `${m.label}${m.enabled ? '' : ' (disabled)'}`).join(', ')}`);
   }
@@ -218,7 +223,7 @@ window.__game = {
     framing: stage ? framing() : [],
     timeline: screen === 'party' ? partyView.timeline() : null,
     party: screen === 'party' ? { ...partyView.state(), opening: partyView.opening } : null,
-    duel: screen === 'duel' ? { hero: battle.hero, rival: battle.rival, menu: battle.menu, next: battle.next, result: battle.result, phase: duelView.phase(), timing: timing.info(), verdict: timing.verdictText(), inputs: duelView.inputs, floats: duelView.floats(), tune: params.get('tune') } : null,
+    duel: screen === 'duel' ? { hero: battle.hero, rival: battle.rival, menu: battle.menu, next: battle.next, result: battle.result, phase: duelView.phase(), timing: timing.info(), verdict: timing.verdictText(), inputs: duelView.inputs, floats: duelView.floats(), wings: duelView.wings(), tune: params.get('tune') } : null,
   }),
   stateText,
   enter,

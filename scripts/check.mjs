@@ -10,7 +10,7 @@ import { PARTY } from '../src/party/data.js';
 import { createParty, timeline, runFight, fightDigest } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
 import { applyTune } from '../src/tune.js';
-import { createDuel, heroTurn, rivalTurn, rivalIntent, playFight, perfectChainsToFall, heroPhysical, rivalPhysical } from '../src/duel/sim.js';
+import { createDuel, heroTurn, rivalTurn, rivalIntent, playFight, perfectChainsToFall, heroPhysical, heroMagic, rivalPhysical } from '../src/duel/sim.js';
 
 const RUNS = 'check-output';
 const KEEP = 5;
@@ -122,6 +122,37 @@ function duelRules() {
   const pc = perfectChainsToFall(DUEL);
   expect('perfect chains to fell Vael', [pc.result, pc.chains], ['win', DUEL.targets.perfectChainsToWin]);
   summaries.push(`[node duel] Vael falls to perfect chain ${pc.chains} (target ${DUEL.targets.perfectChainsToWin}); HP after each: ${pc.hpAfter.join(', ')}`);
+  // Dragoon: transform keeps whole 100s of SP, Strike counts ring presses, spells cost MP,
+  // one Dragoon turn per 100 SP, then Rhen reverts.
+  const dr = createDuel(DUEL, SEED);
+  expect('Dragoon refused under 100 SP', heroTurn(DUEL, dr, { cmd: 'dragoon' }).at(-1).type, 'refused');
+  dr.hero.sp = 280;
+  const tf = heroTurn(DUEL, dr, { cmd: 'dragoon' }).at(-1);
+  expect('transform at 280 SP', [tf.type, tf.turns, tf.spLost, dr.next], ['transform', 2, 80, 'hero']);
+  expect('a Dragoon cannot Guard', heroTurn(DUEL, dr, { cmd: 'guard' }).at(-1).type, 'refused');
+  const ring = (presses) => {
+    const s4 = createDuel(DUEL, SEED);
+    s4.hero.sp = 100;
+    heroTurn(DUEL, s4, { cmd: 'dragoon' });
+    const e4 = heroTurn(DUEL, s4, { cmd: 'strike', presses });
+    return { hits: e4.find((e) => e.type === 'strikeEnd').hits, damage: s4.rival.hp - s4.rival.hpNow, reverted: !s4.hero.dragoon && e4.some((e) => e.type === 'revert') };
+  };
+  for (const [what, presses, hits] of [['ring all on the frame', [0, 0, 0, 0], 5], ['ring press 2 late (+80 ms)', [0, 80, 0, 0], 2], ['ring edges', [-100, 75, -50, 25], 5], ['ring press 4 just outside (+26 ms)', [0, 0, 0, 26], 4], ['ring no presses', [], 1]]) {
+    const got = ring(presses);
+    expect(`${what}: strikes`, got.hits, hits);
+    expect(`${what}: damage`, got.damage, heroPhysical(DUEL, DUEL.dragoon.ring.totalPercent[hits - 1], true));
+    expect(`${what}: reverts after its one Dragoon turn`, got.reverted, true);
+    summaries.push(`[node duel] ${what}: ${got.hits} strikes, ${got.damage} damage`);
+  }
+  heroTurn(DUEL, dr, { cmd: 'magic', spell: 'Ember Shot' });
+  expect('Ember Shot: MP and damage', [dr.hero.mp, dr.rival.hp - dr.rival.hpNow], [DUEL.dragoon.mp - 10, heroMagic(DUEL, DUEL.dragoon.spells[0])]);
+  expect('one Dragoon turn left', [dr.hero.dragoon, dr.hero.sp], [true, 100]);
+  rivalTurn(DUEL, dr, [null, null, null, null]);
+  expect('Four Seals on a Dragoon (DF x2.5)', dr.hero.hp - dr.hero.hpNow, rivalPhysical(DUEL, 4, 1, true));
+  expect('no SP from parries in Dragoon form', dr.hero.sp, 100);
+  heroTurn(DUEL, dr, { cmd: 'magic', spell: 'Crimson Wyrm' });
+  expect('Crimson Wyrm needs 80 MP (90 left)', dr.hero.mp, 10);
+  expect('reverted after 2 Dragoon turns', [dr.hero.dragoon, dr.hero.sp], [false, 0]);
   for (const k of Object.keys(DUEL.accuracy)) {
     const a = JSON.stringify(playFight(DUEL, 42, k));
     if (a !== JSON.stringify(playFight(DUEL, 42, k))) failures.push(`[node duel] ${k} fight is not deterministic`);
@@ -405,6 +436,80 @@ async function duelFight(page, name, click, perfect) {
   if (again.duel?.phase !== 'menu' || again.duel.rival.hpNow !== again.duel.rival.hp) fail('Play again did not start a fresh duel');
 }
 
+// D4: three perfect chains fill the SP bar, transform (flash, wings), a perfect ring
+// (5 strikes), each spell once, then Rhen reverts after his 5th Dragoon turn. Tuned so
+// Vael lasts and 140 MP pays for all four spells (100 MP can't). Must equal Node.
+const DRAGOON_TUNE = 'rival.hp:20000,dragoon.mp:140';
+async function dragoonWalk(page, name, click) {
+  const data = applyTune(DUEL, DRAGOON_TUNE);
+  const fail = (msg) => failures.push(`[${name}] ${msg}`);
+  const plan = ['attack', 'attack', 'attack', 'dragoon', 'strike', ...data.dragoon.spells.map((x) => `magic:${x.name}`)];
+  const seen = { transformed: false, wings: false, strikes: 0, reverted: false };
+  for (let guard = 0; guard < 4000 && !seen.reverted; guard++) {
+    const s = await state(page);
+    const d = s.duel;
+    if (d.phase === 'over') return fail(`fight ended early (${d.result})`);
+    if (d.phase === 'menu' && d.next === 'hero') {
+      const step = plan.shift();
+      if (!step) { seen.reverted = !d.hero.dragoon && !d.wings; break; }
+      if (step === 'dragoon') {
+        if (d.hero.sp !== d.hero.spMax) fail(`SP ${d.hero.sp} before transforming, expected full ${d.hero.spMax}`);
+        await click('#duel-menu [data-cmd="dragoon"]');
+        await advance(page, data.dragoonUi.transformMs * 0.2);
+        await shot(page, name, '1-flash');
+        await advance(page, data.dragoonUi.transformMs);
+        const t = await state(page);
+        seen.transformed = t.duel.hero.dragoon;
+        seen.wings = t.duel.wings;
+        if (!seen.transformed || !seen.wings) fail(`transform: dragoon ${t.duel.hero.dragoon}, wings ${t.duel.wings}`);
+        const labels = await page.$$eval('#duel-menu button', (bs) => bs.map((b) => b.textContent));
+        if (labels.join(',') !== data.dragoon.menu.map((m) => m.label).join(',')) fail(`Dragoon menu reads ${labels}`);
+        await shot(page, name, '2-dragoon');
+      } else if (step.startsWith('magic:')) {
+        await click('#duel-menu [data-cmd="magic"]');
+        await advance(page, 20);
+        if (step.endsWith('Crimson Wyrm')) await shot(page, name, '5-spells');
+        await click(`#duel-menu [data-spell="${step.slice(6)}"]`);
+        await advance(page, data.dragoonUi.flightMs * 0.6);
+        if (step.endsWith('Crimson Wyrm')) await shot(page, name, '6-wyrm');
+      } else await click(`#duel-menu [data-cmd="${step}"]`);
+      await advance(page, 20);
+      continue;
+    }
+    const t = d.timing;
+    if (t.phase === 'addition') {
+      await advanceTo(page, t.perfectAt);
+      await page.evaluate(([at]) => window.__game.press('main', at), [t.perfectAt]);
+      await advance(page, 20);
+      continue;
+    }
+    if (t.phase === 'ring') {
+      if (!t.started) { await advance(page, 300); await page.evaluate(() => window.__game.press('main')); await advance(page, 20); continue; }
+      if (t.press === 2) { await advanceTo(page, t.perfectAt - 150); await shot(page, name, '3-ring'); }
+      await advanceTo(page, t.perfectAt);
+      await page.evaluate(([at]) => window.__game.press('main', at), [t.perfectAt]);
+      seen.strikes = t.press + 1;
+      await advance(page, 20);
+      continue;
+    }
+    if (t.phase === 'defense') {
+      for (const at of t.contacts) { await advanceTo(page, at); await page.evaluate(([x]) => window.__game.press('main', x), [at]); }
+      await advance(page, 300);
+      continue;
+    }
+    await advance(page, 200);
+  }
+  const s = await state(page);
+  if (!seen.reverted) fail(`did not revert after the planned Dragoon turns (dragoon ${s.duel.hero.dragoon}, plan left ${plan.join(',')})`);
+  await shot(page, name, '7-reverted');
+  const node = createDuel(data, SEED);
+  for (const inp of s.duel.inputs) inp.who === 'hero' ? heroTurn(data, node, inp.command) : rivalTurn(data, node, inp.defense);
+  const pick = (x) => JSON.stringify({ hero: x.hero, rival: x.rival, next: x.next, result: x.result });
+  if (pick(s.duel) !== pick(node)) fail(`browser duel differs from Node: ${pick(s.duel)} vs ${pick(node)}`);
+  if (node.tally.strikeHits !== 5 || node.tally.spells !== 4 || node.tally.transforms !== 1) fail(`tally ${JSON.stringify(node.tally)}`);
+  summaries.push(`[${name}] transformed at ${node.hero.spMax} SP, ring ${node.tally.strikeHits}/5 strikes, ${node.tally.spells} spells (MP ${node.hero.mp} left), reverted after 5 Dragoon turns; Vael HP ${node.rival.hpNow}/${node.rival.hp}; matches Node`);
+}
+
 const DEVICES = {
   laptop: [{ viewport: { width: 1280, height: 720 } }, (page) => (sel) => page.click(sel)],
   phone: [{ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, (page) => (sel) => page.tap(sel)],
@@ -413,6 +518,7 @@ for (const [name, [opts, input]] of Object.entries(DEVICES)) {
   await run(name, opts, (page) => walk(page, name, input(page)));
   await run(`${name}-timing`, opts, (page) => timingWalk(page, `${name}-timing`, input(page)), '&debug&mode=duel');
   await run(`${name}-victory`, opts, (page) => duelFight(page, `${name}-victory`, input(page), true), '&mode=duel');
+  await run(`${name}-dragoon`, opts, (page) => dragoonWalk(page, `${name}-dragoon`, input(page)), `&mode=duel&tune=${DRAGOON_TUNE}`);
   await run(`${name}-defeat`, opts, (page) => duelFight(page, `${name}-defeat`, input(page), false), `&mode=duel&tune=${DEFEAT_TUNE}`);
 }
 

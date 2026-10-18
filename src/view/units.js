@@ -12,7 +12,7 @@ const DEFAULT_CLIPS = { idle: ['general', 'Idle_A'], hit: ['general', 'Hit_A'], 
 const SKELETON_CLIPS = { idle: ['special', 'Skeletons_Idle'], death: ['special', 'Skeletons_Death'], spawn: ['special', 'Skeletons_Spawn_Ground'] };
 export const FIGURES = {
   // Duel
-  hero: { file: 'Knight.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Slice_Diagonal'], guard: ['melee', 'Melee_Blocking'], parry: ['melee', 'Melee_Block'], item: ['general', 'Use_Item'] } },
+  hero: { file: 'Knight.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Slice_Diagonal'], guard: ['melee', 'Melee_Blocking'], parry: ['melee', 'Melee_Block'], item: ['general', 'Use_Item'], summon: ['ranged', 'Ranged_Magic_Summon'], cast: ['ranged', 'Ranged_Magic_Shoot'] } },
   rival: { file: 'Rogue_Hooded.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Stab'] } },
   // Party
   // Party heroes: basic / skill / ultimate each have a clip.
@@ -31,7 +31,7 @@ const RIG_FILES = {
   ranged: 'Rig_Medium_CombatRanged.glb',
   special: 'Rig_Medium_Special.glb',
 };
-const ONCE = new Set(['attack', 'basic', 'skill', 'ultimate', 'hit', 'death', 'spawn', 'parry', 'item']); // play once; all but death fall back to idle
+const ONCE = new Set(['attack', 'basic', 'skill', 'ultimate', 'hit', 'death', 'spawn', 'parry', 'item', 'summon', 'cast']); // play once; all but death fall back to idle
 
 export function createFigures(scene) {
   const loader = new GLTFLoader();

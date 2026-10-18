@@ -87,6 +87,7 @@ The two squares start closing 17 ticks (0.85 s) before each window opens; presse
 | SP bar | 100 per Dragoon level; DL5 = **500** (five segments) | SC; LODW [Dragoon](https://legendofdragoon.org/wiki/Dragoon) | two sources agree |
 | Transform | needs at least 100 SP; leftover under a full 100 is lost on transforming (180 → 100) | LODW | best guess (one source) |
 | Dragoon turns | **one turn per 100 SP** (full DL5 bar = 5 turns, matching "turns = Dragoon level" only when full); form ends at 0 SP | LODW | best guess (one source) |
+| SP while a Dragoon | none gained (we also give no parry SP in form) | community knowledge, not traced in SC | best guess |
 | Commands as a Dragoon | D'Attack and Magic only (no Guard, Items, Escape) | LODW Tutorials; SC config | two sources agree |
 | DL5 Dragoon multipliers | AT 170%, DF 250%, MAT 170%, MDF 250% | SC (150 + 5 per DL, etc.); LODW | two sources agree |
 | MP at DL5 | **100** (20 per Dragoon level) | SC `RetailCharacterTemplate` | confirmed (one source) |

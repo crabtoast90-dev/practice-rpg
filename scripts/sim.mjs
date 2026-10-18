@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { PARTY } from '../src/party/data.js';
 import { createParty, timeline, actionValue, runFight } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
-import { playFight, perfectChainsToFall, heroPhysical, rivalPhysical } from '../src/duel/sim.js';
+import { playFight, perfectChainsToFall, heroPhysical, heroMagic, rivalPhysical } from '../src/duel/sim.js';
 
 const out = [];
 
@@ -40,6 +40,7 @@ const duelRows = Object.entries(DUEL.accuracy).map(([key, p]) => {
     rounds: median(fights.map((f) => f.actions)),
     hpLeft: mean(wins.map((f) => (100 * f.heroHp) / (DUEL.hero.hp * (DUEL.hero.soloBoost?.mult ?? 1)))),
     hitsPerChain: mean(fights.map((f) => f.hitsLanded / f.chains)),
+    strikeHits: mean(fights.filter((f) => f.strikes).map((f) => f.strikeHits / f.strikes)),
     dragoon: median(fights.map((f) => f.dragoonReadyTurn ?? Infinity)),
     parries: mean(fights.map((f) => f.parries)),
     dodges: mean(fights.map((f) => f.dodges)),
@@ -57,13 +58,15 @@ line();
 line('## Headline');
 line();
 line(`- Duel target **${chainPass ? 'PASSES' : 'FAILS'}**: Vael falls to perfect Frenzy Chain number ${chains.chains} (target ${chainTarget}).`);
-line(`- Duel win rate: ${duelRows.map((r) => `${r.p.label} ${n0(r.winPct)}% in ${r.turns} turns`).join(', ')} (Rhen's turns, median of ${DUEL.simFights} fights each; no Dragoon yet).`);
+line(`- Duel win rate: ${duelRows.map((r) => `${r.p.label} ${n0(r.winPct)}% in ${r.turns} turns`).join(', ')} (Rhen's turns, median of ${DUEL.simFights} fights each; the bot turns Dragoon at ${DUEL.bot.dragoonAtSp} SP and Strikes).`);
 line(`- Party: auto-battle wins ${pctOf(party.win, FIGHTS)} of ${FIGHTS} seeded fights, in ${Math.round(avg(party.turns))} turns (${Math.round(avg(party.av))} action value) on average. Damage share: ${PARTY.lineup.map((id) => `${PARTY.heroes[id].name} ${pctOf(party.perHero[id].damage, totalDamage)}`).join(', ')}. No targets set yet (PLAN.md P4).`);
 line();
 
 line('## Mode 1: Duel');
 line();
-line(`Numbers: ${DUEL.status}. Dragoon form is not in the sim yet (PLAN.md D4), so these fights are Frenzy Chains, parries / dodges and Healing Potions only; Dragoon will make every row shorter.`);
+line(`Numbers: ${DUEL.status}. The simulated player Attacks, parries or dodges, drinks a Healing Potion below ${DUEL.bot.healBelowPercent}% HP, turns Dragoon once SP reaches ${DUEL.bot.dragoonAtSp} and then ${DUEL.bot.dragoonSpell ? `casts ${DUEL.bot.dragoonSpell} while MP lasts, else ` : ''}uses Strike with the same press accuracy.`);
+line();
+line(`Dragoon damage on Vael: Strike ${DUEL.dragoon.ring.totalPercent.map((p) => heroPhysical(DUEL, p, true)).join(' / ')} for 1-5 strikes; ${DUEL.dragoon.spells.map((x) => `${x.name} ${heroMagic(DUEL, x)} (${x.mp} MP)`).join(', ')}. A perfect Frenzy Chain is ${heroPhysical(DUEL, 100)}.`);
 line();
 line('### Target: perfect chains to win');
 line();
@@ -71,11 +74,11 @@ line(`A perfect Frenzy Chain does ${heroPhysical(DUEL, 100)} damage. Vael has ${
 line();
 line('### Win rate and fight length by press accuracy');
 line();
-line('player | how they press | defends with | wins | fight length (Rhen turns) | all turns | HP left when winning | hits per chain (of 6) | Dragoon first ready on Rhen turn | parries / dodges per fight');
-line('--- | --- | --- | --- | --- | --- | --- | --- | --- | ---');
+line('player | how they press | defends with | wins | fight length (Rhen turns) | all turns | HP left when winning | hits per chain (of 6) | strikes per Strike (of 5) | Dragoon first ready on Rhen turn | parries / dodges per fight');
+line('--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---');
 for (const r of duelRows) {
   const how = r.p.sdMs === 0 && r.p.biasMs === 0 ? 'every press on the perfect frame' : `${r.p.biasMs ? `${r.p.biasMs > 0 ? '+' : ''}${r.p.biasMs} ms off, ` : ''}spread ±${r.p.sdMs} ms${r.p.missPercent ? `, ${r.p.missPercent}% no press` : ''}${r.p.mash ? `, ${r.p.mash.presses} presses ${r.p.mash.gapMs} ms apart` : ''}`;
-  line(`${r.p.label} | ${how} | ${r.p.defend} | ${n0(r.winPct)}% | ${r.turns} | ${r.rounds} | ${n0(r.hpLeft)}% | ${r.hitsPerChain.toFixed(1)} | ${r.dragoon} | ${r.parries.toFixed(1)} / ${r.dodges.toFixed(1)}`);
+  line(`${r.p.label} | ${how} | ${r.p.defend} | ${n0(r.winPct)}% | ${r.turns} | ${r.rounds} | ${n0(r.hpLeft)}% | ${r.hitsPerChain.toFixed(1)} | ${r.strikeHits.toFixed(1)} | ${r.dragoon} | ${r.parries.toFixed(1)} / ${r.dodges.toFixed(1)}`);
 }
 line();
 const mash = duelRows.find((r) => r.key === 'mashing');

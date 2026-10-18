@@ -4,14 +4,16 @@ import { heroTurn, rivalTurn, rivalIntent } from '../duel/sim.js';
 // Every rule is the sim's: presses go to it as millisecond offsets, and numbers shown
 // mid-move come from running the sim ahead on a copy of the battle (preview).
 // Waits run on the game clock (later), so the test clock replays them exactly.
-export function createDuelView({ data, battle, figures, timing, later, now, anchor, restart, $ }) {
+export function createDuelView({ data, battle, figures, timing, later, now, anchor, restart, look, $ }) {
   const ui = data.timingUi;
   // Touch screens get tap buttons for the presses; with a keyboard you press keys (user call).
   const touch = matchMedia('(pointer: coarse)').matches;
   const keyName = (code) => code.replace(/^Key/, '');
   const keysFor = (button) => ui.keys[button].map(keyName).join(' / ');
   const inputs = []; // every input sent to the sim, so the check can replay it in Node
-  let phase = 'menu'; // menu | items | addition | resolving | defense | over
+  let phase = 'menu'; // menu | items | magic | addition | ring | transforming | resolving | defense | over
+  let flashFrom = -Infinity; // the white flash of a transformation
+  let flashMs = 1;
   let note = '';
   const floats = []; // rising numbers and words: { text, kind, at, born }
   const fig = (id) => figures.all().find((f) => f.id === id);
@@ -25,7 +27,9 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
     $('rival-name').textContent = rival.name;
     $('rival-hp').style.width = pct(rival.hpNow, rival.hp);
     $('hero-name').textContent = hero.name;
-    $('hero-dlv').textContent = `Dragoon Lv ${data.hero.dragoonLevel}`;
+    $('hero-dlv').innerHTML = hero.dragoon ? `<span class="form-tag">DRAGOON · ${hero.sp / data.dragoon.spPerLevel} turn${hero.sp === data.dragoon.spPerLevel ? '' : 's'} left</span>` : `Dragoon Lv ${data.hero.dragoonLevel}`;
+    $('hero-mp').style.width = pct(hero.mp, hero.mpMax);
+    $('hero-mp-text').textContent = `${hero.mp}/${hero.mpMax}`;
     $('hero-hp').style.width = pct(hero.hpNow, hero.hp);
     $('hero-hp-text').textContent = `${hero.hpNow}/${hero.hp}`;
     // One SP segment per Dragoon level, each filling as SP comes in.
@@ -34,20 +38,24 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
       const fill = Math.max(0, Math.min(1, (hero.sp - i * per) / per));
       return `<i class="${fill === 1 ? 'full' : ''}"><b style="width:${fill * 100}%"></b></i>`;
     }).join('');
-    const myTurn = (phase === 'menu' || phase === 'items') && battle.next === 'hero';
+    const myTurn = (phase === 'menu' || phase === 'items' || phase === 'magic') && battle.next === 'hero';
     const menu = $('duel-menu');
-    if (phase === 'items') {
+    if (phase === 'magic') {
+      menu.innerHTML = data.dragoon.spells.map((x) => `<button data-spell="${x.name}" ${hero.mp >= x.mp ? '' : 'disabled'}>${x.name} <small>${x.mp} MP</small></button>`).join('') + '<button data-cmd="back">Back</button>';
+    } else if (hero.dragoon) {
+      menu.innerHTML = data.dragoon.menu.map((m) => `<button data-cmd="${m.id}" ${myTurn ? '' : 'disabled'}>${m.label}</button>`).join('');
+    } else if (phase === 'items') {
       menu.innerHTML = data.items.map((it) => `<button data-item="${it.name}" ${hero.items[it.name] ? '' : 'disabled'}>${it.name} ×${hero.items[it.name]}</button>`).join('') + '<button data-cmd="back">Back</button>';
     } else {
       menu.innerHTML = battle.menu.map((m) => {
         if (!m.enabled) return `<button data-cmd="${m.id}" class="off" title="no escape from a boss" ${myTurn ? '' : 'disabled'}>${m.label}</button>`;
-        if (m.id === 'dragoon') return `<button data-cmd="dragoon" class="${hero.sp >= per ? 'ready' : ''}" disabled title="Dragoon form arrives in PLAN.md D4">${m.label}</button>`;
+        if (m.id === 'dragoon') return `<button data-cmd="dragoon" class="${hero.sp >= per ? 'ready' : ''}" ${myTurn && hero.sp >= per ? '' : 'disabled'} title="needs ${per} SP">${m.label}</button>`;
         return `<button data-cmd="${m.id}" ${myTurn ? '' : 'disabled'}>${m.label}</button>`;
       }).join('');
     }
-    menu.hidden = phase === 'addition' || phase === 'defense' || phase === 'over';
+    menu.hidden = phase === 'addition' || phase === 'ring' || phase === 'defense' || phase === 'over' || phase === 'transforming';
     const counter = data.addition.counterable;
-    $('pad').innerHTML = !touch ? '' : phase === 'addition'
+    $('pad').innerHTML = !touch ? '' : phase === 'ring' ? '<button data-press="main">Press</button>' : phase === 'addition'
       ? `<button data-press="main">Press</button>${counter ? '<button data-press="counter" class="counter">Counter</button>' : ''}`
       : phase === 'defense' ? '<button data-press="dodge" class="dodge">Dodge</button><button data-press="main">Parry</button>' : '';
     $('pad').hidden = !$('pad').innerHTML;
@@ -78,9 +86,42 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
       if (!hit || hit.hpAfter === 0) timing.finish(); // Vael is down: the chain stops
     });
   }
+  // ---- Dragoon ----
+  function transform() {
+    const ev = heroTurn(data, battle, { cmd: 'dragoon' });
+    inputs.push({ who: 'hero', command: { cmd: 'dragoon' } });
+    if (ev.at(-1).type !== 'transform') return hud();
+    phase = 'transforming';
+    note = '';
+    flashFrom = now();
+    flashMs = data.dragoonUi.transformMs;
+    play('hero', 'summon');
+    later(data.dragoonUi.transformMs * 0.35, () => { look.put(fig('hero')); pop('hero', 'Dragoon!', 'word'); });
+    later(data.dragoonUi.transformMs, () => { phase = 'menu'; hud(); });
+    hud();
+  }
+  function strike() {
+    phase = 'ring';
+    note = touch ? 'Tap Press to start the light, then each time it reaches the top' : `Press ${keysFor('main')} to start the light, then each time it reaches the top`;
+    document.activeElement?.blur?.();
+    hud();
+    timing.startRing((presses) => resolveHero({ cmd: 'strike', presses }), (n, soFar) => {
+      if (n === 1) note = '';
+      hud();
+      const ev = preview((b) => heroTurn(data, b, { cmd: 'strike', presses: soFar }));
+      const hit = ev.filter((e) => e.type === 'hit' && e.to === 'rival')[n - 1];
+      play('hero', 'attack');
+      later(ui.flashMs, () => { play('rival', 'hit'); if (hit) pop('rival', hit.damage, 'dmg'); });
+      if (!hit || hit.hpAfter === 0) timing.finish();
+    });
+  }
+  const chest = (id) => { const f = fig(id); const p = f.group.position.clone(); p.y += f.height * 0.6; return p; };
+
   function command(cmd) {
-    if (battle.next !== 'hero' || (phase !== 'menu' && phase !== 'items')) return;
+    if (battle.next !== 'hero' || (phase !== 'menu' && phase !== 'items' && phase !== 'magic')) return;
     if (cmd.cmd === 'attack') return attack();
+    if (cmd.cmd === 'dragoon') return transform();
+    if (cmd.cmd === 'strike') return strike();
     if (cmd.cmd === 'escape') {
       const ev = heroTurn(data, battle, cmd);
       inputs.push({ who: 'hero', command: cmd });
@@ -94,13 +135,27 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
     note = '';
     inputs.push({ who: 'hero', command: cmd });
     const ev = heroTurn(data, battle, cmd);
-    for (const e of ev) {
+    let wait = cmd.cmd === 'attack' || cmd.cmd === 'strike' ? ui.afterChainMs : ui.afterRivalMs;
+    for (const [i, e] of ev.entries()) {
+      if (e.type === 'spell') {
+        const du = data.dragoonUi;
+        play('hero', 'cast');
+        look.cast(data.dragoon.spells.find((x) => x.name === e.name), chest('hero'), chest('rival'), now());
+        pop('hero', e.name, 'word');
+        const hit = ev.slice(i).find((x) => x.type === 'hit' && x.to === 'rival');
+        later(du.flightMs, () => { play('rival', 'hit'); if (hit) pop('rival', hit.damage, 'dmg'); });
+        wait = du.flightMs + du.burstMs + ui.afterRivalMs;
+      }
+      if (e.type === 'revert') {
+        later(wait, () => { flashFrom = now(); flashMs = data.dragoonUi.revertMs; look.remove(); pop('hero', 'Dragoon fades', 'word'); hud(); });
+        wait += data.dragoonUi.revertMs;
+      }
       if (e.type === 'guard') { play('hero', 'guard'); pop('hero', `+${e.heal}`, 'heal'); pop('hero', 'Guard', 'word'); }
       if (e.type === 'item') { play('hero', 'item'); pop('hero', e.heal !== undefined ? `+${e.heal}` : e.item, e.heal !== undefined ? 'heal' : 'word'); }
       if (e.type === 'sp' && e.why === 'item') pop('hero', `+${e.gain} SP`, 'sp');
       if (e.type === 'counter' && !e.blocked) pop('hero', 'Countered!', 'word');
     }
-    later(cmd.cmd === 'attack' ? ui.afterChainMs : ui.afterRivalMs, afterAction);
+    later(wait, afterAction);
     hud();
   }
 
@@ -156,6 +211,9 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
   const floatsEl = $('floats');
   function update() {
     const t = now();
+    const fa = (t - flashFrom) / flashMs; // the transformation flash: sharp in, slow out
+    $('flash').style.opacity = fa >= 0 && fa < 1 ? String(fa < 0.15 ? fa / 0.15 : (1 - fa) / 0.85) : '0';
+    look.update(t);
     while (floats.length && t - floats[0].born > ui.floatMs) floats.shift();
     floatsEl.innerHTML = floats.map((f, i) => {
       const age = (t - f.born) / ui.floatMs;
@@ -171,8 +229,11 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
     if (b.dataset.item) return command({ cmd: 'item', item: b.dataset.item });
+    if (b.dataset.spell) return command({ cmd: 'magic', spell: b.dataset.spell });
     const id = b.dataset.cmd;
     if (id === 'items') { phase = 'items'; return hud(); }
+    if (id === 'magic') { phase = 'magic'; return hud(); }
+    if (id === 'dragoon' || id === 'strike') return command({ cmd: id });
     if (id === 'back') { phase = 'menu'; return hud(); }
     if (id === 'attack' || id === 'guard' || id === 'escape') command({ cmd: id });
   };
@@ -180,5 +241,5 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
   hud();
   if (battle.next === 'rival') rival();
 
-  return { hud, update, phase: () => phase, inputs, floats: () => floats.map((f) => `${f.at}:${f.text}`) };
+  return { hud, update, phase: () => phase, inputs, floats: () => floats.map((f) => `${f.at}:${f.text}`), wings: () => look.worn() };
 }

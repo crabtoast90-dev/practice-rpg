@@ -1,4 +1,4 @@
-import { judgePress, judgeDefense } from '../duel/sim.js';
+import { judgePress, judgeDefense, judgeRingPress } from '../duel/sim.js';
 
 // The timing UI: Frenzy Chain's shrinking squares and the dodge / parry rings on
 // Vael's hits. It only measures presses; the sim's own judges give every verdict, and
@@ -15,8 +15,10 @@ export function createTiming({ data, root, now, latency, anchor }) {
   const outer = el('sq outer');
   const ringT = el('ring target');
   const ringO = el('ring outer');
+  const dial = el('dial');
+  const dot = el('dial-dot');
   const word = el('verdict');
-  for (const e of [target, outer, ringT, ringO, word]) e.hidden = true;
+  for (const e of [target, outer, ringT, ringO, dial, dot, word]) e.hidden = true;
 
   const log = []; // the last presses, for ?debug and the check
   let seq = null; // the running addition or defence
@@ -65,6 +67,54 @@ export function createTiming({ data, root, now, latency, anchor }) {
       flash = { kind: 'late', until: now() + ui.flashMs };
       say('Late', 'miss', 'rival');
       return endAddition();
+    }
+  }
+
+  // ---- the Dragoon ring ----
+  // A start press sets the light going (strike 1); each later press lands as the light
+  // reaches the top at the end of a lap. Lap ends are in ms from the start press.
+  const ring = data.dragoon.ring;
+  const lapEnds = ring.lapTicks.map((_, i) => ring.lapTicks.slice(0, i + 1).reduce((x, y) => x + y, 0) * data.tickMs);
+  const ringHalf = ring.windowTicks.map((w) => (w * data.tickMs) / 2);
+  function startRing(onDone, onHit) {
+    seq = { kind: 'ring', t0: null, opened: now(), k: 0, presses: [], onDone, onHit };
+  }
+  function ringGo(t) {
+    seq.t0 = t - latency();
+    seq.onHit?.(1, []);
+  }
+  function endRing() {
+    const s = seq;
+    seq = null;
+    s.onDone(s.presses);
+  }
+  function ringPress(t) {
+    const s = seq;
+    if (s.t0 === null) return ringGo(t);
+    const k = s.k;
+    const ms = Math.round(t - latency() - (s.t0 + lapEnds[k]));
+    const j = judgeRingPress(data, k, ms);
+    record({ what: `Dragoon ring ${k + 1}`, button: 'main', ms, verdict: j.verdict });
+    s.presses[k] = ms;
+    flash = { kind: j.verdict === 'success' ? 'success' : j.verdict, until: now() + ui.flashMs };
+    if (j.verdict !== 'success') { say(j.verdict === 'early' ? 'Early' : 'Late', 'miss', 'rival'); return endRing(); }
+    s.onHit?.(k + 2, s.presses.slice(0, k + 1));
+    if (seq !== s) return;
+    s.k += 1;
+    if (s.k === lapEnds.length) { say('Perfect!', 'good', 'rival'); endRing(); }
+  }
+  function updateRing() {
+    const s = seq;
+    if (s.t0 === null) {
+      if (now() - s.opened >= data.dragoonUi.ringAutoStartMs) ringGo(now());
+      return;
+    }
+    const k = s.k;
+    if (now() - latency() - s.t0 > lapEnds[k] + ringHalf[k]) {
+      record({ what: `Dragoon ring ${k + 1}`, button: null, ms: null, verdict: 'missed' });
+      flash = { kind: 'late', until: now() + ui.flashMs };
+      say('Late', 'miss', 'rival');
+      endRing();
     }
   }
 
@@ -120,7 +170,28 @@ export function createTiming({ data, root, now, latency, anchor }) {
   function draw() {
     const t = now();
     const shownNow = t - latency();
-    target.hidden = outer.hidden = ringT.hidden = ringO.hidden = true;
+    target.hidden = outer.hidden = ringT.hidden = ringO.hidden = dial.hidden = dot.hidden = true;
+    if (seq?.kind === 'ring') {
+      const du = data.dragoonUi;
+      const s = seq;
+      const k = Math.min(s.k, lapEnds.length - 1);
+      let turn = 0; // 0..1 round the current lap, 0 = top
+      if (s.t0 !== null) {
+        const lapStart = k ? lapEnds[k - 1] : 0;
+        turn = Math.min(1, Math.max(0, (shownNow - s.t0 - lapStart) / (lapEnds[k] - lapStart)));
+      }
+      const deg = (360 * ringHalf[k] * 2) / (lapEnds[k] - (k ? lapEnds[k - 1] : 0)); // the press window as an arc at the top
+      dial.hidden = dot.hidden = false;
+      place(dial, 'rival', du.ringPx);
+      dial.style.setProperty('--win', `${deg}deg`);
+      dial.dataset.kind = flash && t < flash.until ? flash.kind : '';
+      const p = anchor('rival');
+      const r = du.ringPx / 2;
+      const a = turn * 2 * Math.PI;
+      dot.style.width = dot.style.height = `${du.dotPx}px`;
+      dot.style.transform = `translate(${p.x + r * Math.sin(a) - du.dotPx / 2}px, ${p.y - r * Math.cos(a) - du.dotPx / 2}px)`;
+      dot.dataset.idle = s.t0 === null ? '1' : '';
+    }
     if (seq?.kind === 'addition') {
       const k = seq.k;
       const left = seq.t0 + perfectAt[k] - shownNow; // ms until the perfect frame
@@ -163,9 +234,11 @@ export function createTiming({ data, root, now, latency, anchor }) {
 
   return {
     startAddition,
+    startRing,
     startDefense,
     press(button, t = now()) {
       if (seq?.kind === 'addition' && (button === 'main' || button === 'counter')) additionPress(button, t);
+      else if (seq?.kind === 'ring' && button === 'main') ringPress(t);
       else if (seq?.kind === 'defense' && (button === 'main' || button === 'dodge')) defensePress(button, t);
     },
     update() {
@@ -175,6 +248,7 @@ export function createTiming({ data, root, now, latency, anchor }) {
         while (s.swung < s.hits.length && now() >= s.hits[s.swung].contact - ui.rivalSwingLeadMs) s.onSwing?.(s.swung++);
       }
       if (seq?.kind === 'addition') updateAddition();
+      else if (seq?.kind === 'ring') updateRing();
       else if (seq?.kind === 'defense') updateDefense();
       draw();
     },
@@ -183,6 +257,7 @@ export function createTiming({ data, root, now, latency, anchor }) {
     info() {
       if (!seq) return { phase: null, log: [...log] };
       if (seq.kind === 'addition') return { phase: 'addition', press: seq.k + 1, perfectAt: seq.t0 + perfectAt[seq.k], log: [...log] };
+      if (seq.kind === 'ring') return { phase: 'ring', started: seq.t0 !== null, press: seq.k + 1, perfectAt: seq.t0 === null ? null : seq.t0 + lapEnds[seq.k], log: [...log] };
       const hit = seq.hits[seq.h];
       return { phase: 'defense', move: seq.intent.name, hit: seq.h + 1, contactAt: hit?.contact ?? null, contacts: seq.hits.map((h) => h.contact), log: [...log] };
     },

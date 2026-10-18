@@ -1,12 +1,14 @@
 // Mode 1 sim: pure and deterministic (no three.js, no DOM, no Math.random, no clock).
 // Presses arrive as an offset in milliseconds from the perfect frame (null = no press),
 // so tests can script perfect, early, late and missed presses. Every rule reads its
-// numbers from src/duel/data.js. Dragoon form is PLAN.md D4 (refused here for now).
+// numbers from src/duel/data.js.
 //
 // Flow: createDuel(), then whoever state.next names acts:
 //   heroTurn(data, state, command)   command = { cmd: 'attack', presses: [5 offsets] }
 //                                    | { cmd: 'guard' } | { cmd: 'item', item: name }
-//                                    | { cmd: 'escape' } | { cmd: 'dragoon' }
+//                                    | { cmd: 'escape' } | { cmd: 'dragoon' } (transform, then act)
+//                                    in Dragoon form: { cmd: 'strike', presses: [4 ring offsets] }
+//                                    | { cmd: 'magic', spell: name }
 //   rivalTurn(data, state, defense)  defense = one entry per hit of rivalIntent():
 //                                    null | { kind: 'parry'|'dodge', ms } | [several presses]
 // Both return the events of that action, for the view to play back.
@@ -42,12 +44,13 @@ export function createDuel(data, seed = 1) {
     hero: {
       name: h.name, model: h.model, hp: h.hp, hpNow: h.hp,
       sp: 0, spMax: data.dragoon.spPerLevel * h.dragoonLevel, dragoon: false, guarding: false,
+      mp: data.dragoon.mp, mpMax: data.dragoon.mp,
       turns: 0, nextAt: gauge / h.spd,
       items: Object.fromEntries(data.items.map((it) => [it.name, it.count])),
     },
     rival: { name: r.name, model: r.model, hp: r.hp, hpNow: r.hp, turns: 0, nextAt: gauge / r.spd, openerUsed: false, lastGasp: 'unused' }, // unused | due | done
     menu: data.menu.map((m) => ({ id: m.id, label: m.label, enabled: !m.disabledVsBoss })),
-    tally: { chains: 0, perfectChains: 0, hitsLanded: 0, dragoonReadyTurn: null, parries: 0, dodges: 0, hitsTaken: 0 },
+    tally: { chains: 0, perfectChains: 0, hitsLanded: 0, dragoonReadyTurn: null, parries: 0, dodges: 0, hitsTaken: 0, transforms: 0, strikes: 0, strikeHits: 0, spells: 0 },
   };
 }
 
@@ -55,16 +58,26 @@ export function createDuel(data, seed = 1) {
 
 // Rhen's physical damage for the landed hits' summed percent; per-hit damage is the
 // step between running totals, so the hits always add up to the whole.
-export function heroPhysical(data, percent) {
+// As a Dragoon his AT is multiplied (and replaces the addition multiplier).
+export function heroPhysical(data, percent, dragoon = false) {
   const h = stats(data.hero);
   const r = stats(data.rival);
-  return Math.floor(((h.level + 5) * h.atk * (percent / 100) * data.addition.damageMult * 5) / r.def);
+  const atk = dragoon ? h.atk * data.dragoon.mult.atk : h.atk;
+  const mult = dragoon ? 1 : data.addition.damageMult;
+  return Math.floor(((h.level + 5) * atk * (percent / 100) * mult * 5) / r.def);
 }
-// Vael's physical damage for a fraction of a move with this multiplier.
-export function rivalPhysical(data, mult, fraction = 1) {
+// Dragoon magic: (level + 5) x (MAT x Dragoon MAT) x 5 / target MDF x spell multiplier.
+export function heroMagic(data, spell) {
   const h = stats(data.hero);
   const r = stats(data.rival);
-  return Math.floor(((r.atk * r.atk * 5) / h.def) * mult * fraction);
+  return Math.floor((((h.level + 5) * h.mat * data.dragoon.mult.mat * 5) / r.mdf) * spell.mult);
+}
+// Vael's physical damage for a fraction of a move with this multiplier (Dragoon DF if transformed).
+export function rivalPhysical(data, mult, fraction = 1, dragoon = false) {
+  const h = stats(data.hero);
+  const r = stats(data.rival);
+  const def = dragoon ? h.def * data.dragoon.mult.def : h.def;
+  return Math.floor(((r.atk * r.atk * 5) / def) * mult * fraction);
 }
 
 // ---- turn order ----
@@ -84,6 +97,7 @@ function pickNext(state) {
 
 function gainSp(data, state, amount, events, why) {
   const h = state.hero;
+  if (h.dragoon) return; // no SP is gained in Dragoon form
   const before = h.sp;
   h.sp = Math.min(h.spMax, h.sp + amount);
   if (h.sp !== before) events.push({ type: 'sp', gain: h.sp - before, sp: h.sp, why });
@@ -146,8 +160,29 @@ export function heroTurn(data, state, command) {
   const cmd = command?.cmd;
 
   if (cmd === 'escape') return [...events, { type: 'refused', cmd, why: "can't escape from a boss" }];
-  if (cmd === 'dragoon') return [...events, { type: 'refused', cmd, why: 'Dragoon form comes in PLAN.md D4' }];
-  if (cmd === 'item') {
+  const per = data.dragoon.spPerLevel;
+  if (cmd === 'dragoon') {
+    if (h.dragoon) return [...events, { type: 'refused', cmd, why: 'already a Dragoon' }];
+    if (h.sp < per) return [...events, { type: 'refused', cmd, why: `needs ${per} SP` }];
+    // SP under a whole 100 is lost; each 100 left is one Dragoon turn. Rhen then acts.
+    const lost = h.sp % per;
+    h.sp -= lost;
+    h.dragoon = true;
+    state.tally.transforms += 1;
+    return [...events, { type: 'transform', turns: h.sp / per, spLost: lost }];
+  }
+  if (h.dragoon && cmd !== 'strike' && cmd !== 'magic') return [...events, { type: 'refused', cmd, why: 'a Dragoon can only Strike or cast Magic' }];
+  if (!h.dragoon && (cmd === 'strike' || cmd === 'magic')) return [...events, { type: 'refused', cmd, why: 'only in Dragoon form' }];
+  if (cmd === 'magic') {
+    const spell = data.dragoon.spells.find((x) => x.name === command.spell);
+    if (!spell || h.mp < spell.mp) return [...events, { type: 'refused', cmd, why: spell ? 'not enough MP' : `no spell ${command.spell}` }];
+    h.mp -= spell.mp;
+    state.tally.spells += 1;
+    events.push({ type: 'spell', name: spell.name, target: spell.target, mp: h.mp });
+    hurtRival(data, state, heroMagic(data, spell), events, spell.name);
+  } else if (cmd === 'strike') {
+    strike(data, state, command.presses ?? [], events);
+  } else if (cmd === 'item') {
     const item = data.items.find((it) => it.name === command.item);
     if (!item || !h.items[item.name]) return [...events, { type: 'refused', cmd, why: `no ${command.item} left` }];
     h.items[item.name] -= 1;
@@ -169,9 +204,45 @@ export function heroTurn(data, state, command) {
   } else {
     throw new Error(`unknown command ${cmd}`);
   }
+  if (h.dragoon) {
+    h.sp -= per; // one Dragoon turn spent
+    if (h.sp <= 0) { h.sp = 0; h.dragoon = false; events.push({ type: 'revert' }); }
+    else events.push({ type: 'dragoonTurnsLeft', turns: h.sp / per });
+  }
   h.turns += 1;
   advance(data, state, 'hero');
   return events;
+}
+
+// The ring: the press that starts it is the first strike; each timed press as the light
+// reaches the top adds a strike; any miss ends it. Ms are from each lap's end.
+export function judgeRingPress(data, index, ms) {
+  const half = (data.dragoon.ring.windowTicks[index] * data.tickMs) / 2;
+  if (ms === null || ms === undefined) return { verdict: 'missed', ms: null };
+  if (ms < -half) return { verdict: 'early', ms };
+  if (ms > half) return { verdict: 'late', ms };
+  return { verdict: 'success', ms };
+}
+function strike(data, state, presses, events) {
+  const ring = data.dragoon.ring;
+  events.push({ type: 'strikeStart' });
+  state.tally.strikes += 1;
+  let landed = 0;
+  const land = () => {
+    const before = landed ? heroPhysical(data, ring.totalPercent[landed - 1], true) : 0;
+    landed += 1;
+    state.tally.strikeHits += 1;
+    events.push({ type: 'strikeHit', hit: landed });
+    hurtRival(data, state, heroPhysical(data, ring.totalPercent[landed - 1], true) - before, events, 'Dragoon Strike');
+  };
+  land();
+  for (let i = 0; i < ring.lapTicks.length && state.rival.hpNow > 0; i++) {
+    const j = judgeRingPress(data, i, presses[i]);
+    events.push({ type: 'ringPress', press: i + 1, ...j });
+    if (j.verdict !== 'success') break;
+    land();
+  }
+  events.push({ type: 'strikeEnd', hits: landed, perfect: landed === ring.totalPercent.length });
 }
 
 // Frenzy Chain: the first hit always lands; each successful press adds the next hit;
@@ -198,7 +269,7 @@ function attack(data, state, presses, events) {
     events.push({ type: 'press', press: i + 1, ...j });
     if (j.wantCounter) {
       events.push({ type: 'counter', press: i + 1, blocked: j.verdict === 'success' });
-      if (j.verdict !== 'success') hurtHero(state, rivalPhysical(data, data.rival.basic.mult), events, 'counter');
+      if (j.verdict !== 'success') hurtHero(state, rivalPhysical(data, data.rival.basic.mult, 1, state.hero.dragoon), events, 'counter');
     }
     if (j.verdict !== 'success') break;
     land();
@@ -261,14 +332,14 @@ export function rivalTurn(data, state, defense = []) {
       continue;
     }
     if (j.verdict === 'dodged') { state.tally.dodges += 1; continue; }
-    const share = rivalPhysical(data, intent.mult, (k + 1) / intent.hits) - rivalPhysical(data, intent.mult, k / intent.hits);
+    const share = rivalPhysical(data, intent.mult, (k + 1) / intent.hits, h.dragoon) - rivalPhysical(data, intent.mult, k / intent.hits, h.dragoon);
     hurtHero(state, h.guarding ? Math.floor(share * data.guard.damageTaken) : share, events, intent.name);
   }
   // Riposte: parrying every hit of the attack strikes back (not after the last gasp).
   if (parried === intent.hits && !state.result && !intent.lastGasp) {
     const c = data.defense.counter;
     events.push({ type: 'riposte', name: c.name });
-    hurtRival(data, state, heroPhysical(data, c.percent), events, c.name);
+    hurtRival(data, state, heroPhysical(data, c.percent, h.dragoon), events, c.name);
   }
   if (intent.lastGasp) {
     r.lastGasp = 'done';
@@ -312,7 +383,12 @@ export function playFight(data, seed, profile, { maxActions = 2000, keepEvents =
     if (state.next === 'hero') {
       const h = state.hero;
       const heal = data.items.find((it) => it.healPercent);
-      if (heal && h.items[heal.name] > 0 && h.hpNow * 100 < h.hp * data.bot.healBelowPercent) ev = heroTurn(data, state, { cmd: 'item', item: heal.name });
+      const bot = data.bot;
+      const spell = data.dragoon.spells.find((x) => x.name === bot.dragoonSpell);
+      if (!h.dragoon && bot.dragoonAtSp !== null && h.sp >= bot.dragoonAtSp) ev = heroTurn(data, state, { cmd: 'dragoon' });
+      else if (h.dragoon && spell && h.mp >= spell.mp) ev = heroTurn(data, state, { cmd: 'magic', spell: spell.name });
+      else if (h.dragoon) ev = heroTurn(data, state, { cmd: 'strike', presses: data.dragoon.ring.lapTicks.map(() => pressMs(rng, p)) });
+      else if (heal && h.items[heal.name] > 0 && h.hpNow * 100 < h.hp * bot.healBelowPercent) ev = heroTurn(data, state, { cmd: 'item', item: heal.name });
       else ev = heroTurn(data, state, { cmd: 'attack', presses: botPresses(data, rng, p) });
     } else {
       ev = rivalTurn(data, state, botDefense(data, rng, p, rivalIntent(data, state).hits));
