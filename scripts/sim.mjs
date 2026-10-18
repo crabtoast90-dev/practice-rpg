@@ -15,7 +15,7 @@ line(`Written by \`npm run sim\` on ${new Date().toISOString().slice(0, 16).repl
 line();
 line('## Headline');
 line();
-line('- Duel: not simulated yet. Its rules and numbers wait for your check of RESEARCH.md.');
+line('- Duel: not simulated yet (PLAN.md D1). Numbers checked against RESEARCH.md on 2026-10-18.');
 line('- Party: combat not built yet (PLAN.md P1). Opening turn order below comes from the speeds in `src/party/data.js`.');
 line();
 

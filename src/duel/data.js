@@ -1,10 +1,10 @@
 // Mode 1 (Duel) numbers. Every number the duel uses lives here; ask for changes by
-// name. Values come from RESEARCH.md (Mode 1) and stay "awaiting check" until the
+// name. Values come from RESEARCH.md (Mode 1) and were checked by the user on 2026-10-18 (DECISIONS.md); before that check the
 // user has checked RESEARCH.md. On-screen names are original; the source names are
 // only in comments and the docs. Times are in milliseconds (source: 20 ticks/s, 50 ms each).
 
 export const DUEL = {
-  status: 'awaiting RESEARCH.md check', // Mode 1 tuning waits for the user (PLAN.md)
+  status: 'RESEARCH.md checked 2026-10-18', // see DECISIONS.md for the user's answers
   tickMs: 50,
 
   // Stand-in for Dart, Lv35 with Mind Crush, Saint Armor, Knight Helm, Combat Shoes.
@@ -34,7 +34,7 @@ export const DUEL = {
     windowsTicks: [[22, 24], [37, 39], [45, 47], [53, 55], [61, 63]],
     ignoreBeforeTick: 9,
     squareLeadTicks: 17,
-    counterable: false,
+    counterable: true, // the source can't be countered; the user added Vael's mid-chain counter
   },
 
   dragoon: {
@@ -49,6 +49,22 @@ export const DUEL = {
       { name: 'Last Blaze', mp: 30, target: 'one', mult: 3 }, // Final Burst
       { name: 'Crimson Wyrm', mp: 80, target: 'all', mult: 3 }, // Red-Eyed Dragon
     ],
+  },
+
+  // Dodge and parry after Expedition 33 (a deliberate change; see RESEARCH.md). Windows are
+  // total widths in ms, centred on each hit's contact moment.
+  defense: {
+    dodgeWindowMs: 220, parryWindowMs: 150,
+    lockoutMs: 300, // after any press, further presses are ignored (no mashing)
+    spPerParry: 10,
+    counter: { name: 'Riposte', percent: 50 }, // after parrying every hit of an attack; % like an addition hit
+    hits: { basic: 1, signature: 4 }, // Rising Cut is 1 hit, Four Seals one hit per pillar
+    midChain: {
+      chancePercent: 25, // per Frenzy Chain, at most once
+      onlyPresses: [2, 3, 4], // never the first or last press
+      onParry: 'chain continues', onDodge: 'chain ends, no damage', onMiss: 'chain ends, Vael hits',
+      damageMult: 1, // like Rising Cut
+    },
   },
 
   guard: { damageTaken: 0.5, healPercent: 10 },

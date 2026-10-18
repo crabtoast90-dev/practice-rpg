@@ -1,15 +1,15 @@
 # Balance report
 
-Written by `npm run sim` on 2026-10-18 05:50 UTC. Do not edit by hand.
+Written by `npm run sim` on 2026-10-18 06:00 UTC. Do not edit by hand.
 
 ## Headline
 
-- Duel: not simulated yet. Its rules and numbers wait for your check of RESEARCH.md.
+- Duel: not simulated yet (PLAN.md D1). Numbers checked against RESEARCH.md on 2026-10-18.
 - Party: combat not built yet (PLAN.md P1). Opening turn order below comes from the speeds in `src/party/data.js`.
 
 ## Mode 1: Duel
 
-Status: awaiting RESEARCH.md check. Once built, this section reports win rate and fight length at four press accuracies (perfect, good player, sloppy, mashing) and how many turns until Dragoon.
+Status: RESEARCH.md checked 2026-10-18. Once built, this section reports win rate and fight length at four press accuracies (perfect, good player, sloppy, mashing) and how many turns until Dragoon.
 
 ## Mode 2: Party
 

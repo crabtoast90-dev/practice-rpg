@@ -174,7 +174,18 @@ Worked example (Dart Lv35 with the gear below, AT 119, DF 130):
 | Item count | not in the source; I'd give 3 of each | — | best guess: **your call** |
 | Escape | disabled vs this boss | SC | confirmed |
 
-## Mode 1: what I need you to check
+## Mode 1: the user's check (2026-10-18)
+
+1. Lloyd's HP: **6,000** (checked).
+2. Madness Hero: you remembered more than 5 hits. The retail data has **6 damage hits from 5 presses** (re-read in SC `LodAdditions.java`: six hit records), so we keep 6. The animation may show more sword swings than damage hits. The speed (0.4 s between the last three presses) is straight from the same records, so it stays unless the 20 ticks/s reading is wrong; to be judged by feel in D2.
+3. Counters: **yes, as a deliberate change**, modelled on Expedition 33's dodge and parry (section below).
+4. Moves: Punch Slash basic + Four Pillar Dome signature, the rest left out (checked).
+5. Level 35, Disc 3 gear, Madness Hero level 5 (checked). Lloyd's stats **+100%** because the original is 3 heroes vs him; see the warning below.
+6. Solo hero (checked).
+
+**Warning on +100%:** monster damage squares AT, so doubling AT makes his hits **4× as hard**: Punch Slash 246 → **985**, and the Four Pillar opener 985 → **3,938**, which kills Rhen (2,756 HP) on turn one. Doubling DF halves ours: a perfect Madness Hero does **119**, so ~50 perfect attacks for 6,000 HP. For now the data doubles AT, DF, MAT and MDF but not HP or speed (double speed = he acts 2.6 times per Rhen turn). The user decides.
+
+## Mode 1: what I needed you to check (answered above)
 
 1. **Lloyd's HP**: 6,000, 6,500 or 6,800?
 2. **The 20 ticks/second timing and the 150 ms addition window**: does a 150 ms window and 0.4 s between the last three presses match your memory of Madness Hero?
@@ -183,6 +194,30 @@ Worked example (Dart Lv35 with the gear below, AT 119, DF 130):
 5. **Dart's level 35 and gear**, and Madness Hero at **addition level 5** (204 SP per perfect run, so a full DL5 bar takes ~3 perfect turns).
 6. **Dragoon turns** = one per 100 SP (5 with a full bar), not a flat 5.
 7. **Solo hero**: the original fight is a 3-person party. Solo + 6,000 HP Lloyd will be long (25 perfect human-form attacks); fine as "faithful numbers, then tune", or scale Lloyd's HP?
+
+## Dodge and parry (after Clair Obscur: Expedition 33), a deliberate change
+
+The user asked for counters modelled on Expedition 33's dodge and parry. Sources: Automaton guide https://automaton-media.com/en/tips/clair-obscur-expedition-33-how-to-get-the-hang-of-dodges-parries-jumps-and-gradient-counters/ , Maxroll https://maxroll.gg/clair-obscur-expedition-33/guides/combat-guide , Push Square https://www.pushsquare.com/guides/clair-obscur-expedition-33-how-to-improve-parry-timing-and-make-parrying-easier , Siliconera patch 1.3.0 https://www.siliconera.com/clair-obscur-expedition-33-patch-adjusts-dodge-and-parry-timing/ , and Nexus mod "Easier or Harder Dodge and Parry" https://www.nexusmods.com/clairobscurexpedition33/mods/28 (figures relayed by players; page blocked).
+
+| Rule | Value | Confidence |
+|---|---|---|
+| Dodge window | **~220 ms** (Expeditioner / Expert); ~350 ms on Story before patch 1.3.0 | best guess (mod author, relayed) |
+| Parry window | **~150 ms** (Expeditioner / Expert); ~250 ms on Story before 1.3.0 | best guess (mod author, relayed) |
+| Story mode | windows +40% since patch 1.3.0 | confirmed (official patch notes) |
+| Dodge | no damage, no reward; wider and more forgiving than parry | two sources agree |
+| Parry | no damage, +1 AP per parried hit | two sources agree |
+| Counter-attack | parry **every** hit of an attack → automatic counter-attack | two sources agree |
+| Counter damage | no base formula found (Pictos add +25% / +50%) | not found |
+| Missed hit | that hit's damage lands; each hit is judged on its own; the counter is lost | best guess (one source) |
+| Combos | 1-3 hits early, 5-7 late; feints and delayed swings | best guess (one source) / two sources agree |
+| Mashing | doesn't work (an early press wastes the parry); lockout length unknown | best guess |
+
+**How we use it** (my design calls, all in `src/duel/data.js`, all changeable by name):
+- Rhen can **dodge** (wider window) or **parry** (tighter window) every hit of Vael's attacks, timed in ms from the hit's contact moment.
+- **Rising Cut** (his basic) is 1 hit; **Four Seals** (his signature) is 4 hits, one per pillar, each defendable. Parry all of an attack's hits → Rhen's automatic counter-attack.
+- **Vael counters mid-chain** (the LoD-style moment, which the original never does here): at most once per Frenzy Chain, never on the first or last press, with a red flash. Parry it → no damage and the chain continues; dodge it → no damage but the chain ends; miss → he hits Rhen and the chain ends.
+- A press locks out further presses for 300 ms, so mashing fails.
+- Parries give Rhen SP (our stand-in for Expedition 33's AP).
 
 ---
 
