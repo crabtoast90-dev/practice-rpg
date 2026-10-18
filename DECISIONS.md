@@ -37,3 +37,4 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18: Scores after D5: fun 4.1, look 3 ("Excellent"). Duel lane complete.
 - 2026-10-18: Skip E1 (playtest fixes): "happy with what we learned here". Go straight to E2, release. Party P4 (targets and tuning) stays open.
 - 2026-10-18 *(my call)*: Release cleanup: removed unused files from `public/models/` (Ranger model and texture, bow, Rig_Medium_MovementBasic); the sources stay in `gltf/`.
+- 2026-10-18: Scores at release: fun 4.1, look 3 (same as after D5).
