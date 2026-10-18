@@ -1,6 +1,6 @@
 // Mode 1 (Duel) numbers. Every number the duel uses lives here; ask for changes by
-// name. Values come from RESEARCH.md (Mode 1) and were checked by the user on 2026-10-18 (DECISIONS.md); before that check the
-// user has checked RESEARCH.md. On-screen names are original; the source names are
+// name. Values come from RESEARCH.md (Mode 1), checked by the user on 2026-10-18
+// (their answers are in DECISIONS.md). On-screen names are original; the source names are
 // only in comments and the docs. Times are in milliseconds (source: 20 ticks/s, 50 ms each).
 
 export const DUEL = {
