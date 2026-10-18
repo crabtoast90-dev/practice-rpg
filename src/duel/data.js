@@ -125,6 +125,19 @@ export const DUEL = {
     },
   },
 
+  // Vael's signature cinematic (D5), my calls. Beats in order; slow = animation speed.
+  cinematic: {
+    beats: [
+      { shot: 'wide', ms: 1000 },
+      { shot: 'rival', ms: 1400, slow: 0.35 },
+      { shot: 'title', ms: 1500, slow: 0.15 },
+      { shot: 'shoulder', ms: 1000, slow: 0.5 },
+    ],
+    portrait: { pull: 1.7, lower: 0.45 }, // phone-shaped screens: camera distance x pull, aim lowered (m)
+    titleDelay: 0.2, flashPart: 0.25, // in the title beat: a held pause, then the flash, then the card
+    pillars: { count: 4, color: 0x5fa8ff, radius: 0.3, height: 5, spread: 1.15, opacity: 0.28, riseMs: 900, staggerMs: 350, burstMs: 400 },
+  },
+
   // Battle menu, in the source game's order. Escape is greyed out against a boss.
   menu: [
     { id: 'attack', label: 'Attack' },

@@ -432,6 +432,8 @@ async function duelFight(page, name, click, perfect) {
   const fail = (msg) => failures.push(`[${name}] ${msg}`);
   let heroTurns = 0;
   let shots = 0;
+  let cinematics = 0;
+  let cineShots = false;
   for (let guard = 0; guard < 4000; guard++) {
     const s = await state(page);
     const d = s.duel;
@@ -450,6 +452,32 @@ async function duelFight(page, name, click, perfect) {
       } else if (perfect && heroTurns === 2) await click('#duel-menu [data-cmd="guard"]');
       else await click('#duel-menu [data-cmd="attack"]');
       await advance(page, 20);
+      continue;
+    }
+    // D5: the first Four Seals plays every camera beat (screenshot each); the second (the
+    // last gasp) must be skippable with a key.
+    if (d.cinematic.active) {
+      const c = d.cinematic;
+      cinematics++;
+      if (!c.skippable) {
+        if (cinematics > 1) fail('second cinematic was not skippable');
+        for (const [i, b] of c.beats.entries()) {
+          await advanceTo(page, b.at + b.ms * 0.7);
+          const now = (await state(page)).duel.cinematic;
+          if (now.shot !== b.shot) fail(`cinematic beat ${i}: expected ${b.shot}, on ${now.shot}`);
+          if (b.shot === 'title' && (await page.textContent('#cine-title')) !== DUEL.rival.signature.name) fail('title card does not name the move');
+          if (perfect && !cineShots) await shot(page, name, `c${i}-${b.shot}`);
+        }
+        cineShots = true;
+        await advanceTo(page, c.beats.at(-1).at + c.beats.at(-1).ms + 20);
+        if ((await state(page)).duel.cinematic.active) fail('cinematic did not end');
+      } else {
+        await page.keyboard.press('Enter');
+        await advance(page, 20);
+        const after = (await state(page)).duel;
+        if (after.cinematic.active || after.timing.phase !== 'defense') fail(`skip: cinematic ${after.cinematic.active}, timing ${after.timing.phase}`);
+        else summaries.push(`[${name}] second Four Seals cinematic skipped with a key`);
+      }
       continue;
     }
     const t = d.timing;

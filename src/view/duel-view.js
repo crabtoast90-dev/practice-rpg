@@ -4,14 +4,14 @@ import { heroTurn, rivalTurn, rivalIntent } from '../duel/sim.js';
 // Every rule is the sim's: presses go to it as millisecond offsets, and numbers shown
 // mid-move come from running the sim ahead on a copy of the battle (preview).
 // Waits run on the game clock (later), so the test clock replays them exactly.
-export function createDuelView({ data, battle, figures, timing, later, now, anchor, restart, look, $ }) {
+export function createDuelView({ data, battle, figures, timing, later, now, anchor, restart, look, cinematic, $ }) {
   const ui = data.timingUi;
   // Touch screens get tap buttons for the presses; with a keyboard you press keys (user call).
   const touch = matchMedia('(pointer: coarse)').matches;
   const keyName = (code) => code.replace(/^Key/, '');
   const keysFor = (button) => ui.keys[button].map(keyName).join(' / ');
   const inputs = []; // every input sent to the sim, so the check can replay it in Node
-  let phase = 'menu'; // menu | items | magic | addition | ring | transforming | resolving | defense | over
+  let phase = 'menu'; // menu | items | magic | addition | ring | transforming | cinematic | resolving | defense | over
   let flashFrom = -Infinity; // the white flash of a transformation
   let flashMs = 1;
   let note = '';
@@ -53,7 +53,7 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
         return `<button data-cmd="${m.id}" ${myTurn ? '' : 'disabled'}>${m.label}</button>`;
       }).join('');
     }
-    menu.hidden = phase === 'addition' || phase === 'ring' || phase === 'defense' || phase === 'over' || phase === 'transforming';
+    menu.hidden = phase === 'cinematic' || phase === 'addition' || phase === 'ring' || phase === 'defense' || phase === 'over' || phase === 'transforming';
     const counter = data.addition.counterable;
     $('pad').innerHTML = !touch ? '' : phase === 'ring' ? '<button data-press="main">Press</button>' : phase === 'addition'
       ? `<button data-press="main">Press</button>${counter ? '<button data-press="counter" class="counter">Counter</button>' : ''}`
@@ -168,7 +168,12 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
     if (intent.lastGasp) pop('rival', 'Last gasp!', 'word');
     if (fig('hero')?.animation === 'guard' && !battle.hero.guarding) play('hero', 'idle');
     hud();
+    const go = () => { phase = 'defense'; note = `${battle.rival.name}: ${intent.name}${touch ? '' : ` · ${keysFor('main')} parry, ${keysFor('dodge')} dodge`}`; hud(); defend(intent); };
+    if (intent.kind === 'signature') { phase = 'cinematic'; note = ''; hud(); cinematic.play(intent.name, go); } else defend(intent);
+  }
+  function defend(intent) {
     timing.startDefense(intent, (defense) => {
+      later(data.cinematic.pillars.burstMs, cinematic.clearPillars);
       phase = 'resolving';
       inputs.push({ who: 'rival', defense });
       const ev = rivalTurn(data, battle, defense);
@@ -182,6 +187,7 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
       later(ui.afterRivalMs, afterAction);
       hud();
     }, (k, verdict, soFar) => {
+      cinematic.pillarHit(k);
       if (verdict === 'parried') { play('hero', 'parry'); return; }
       if (verdict === 'dodged') return;
       const ev = preview((b) => rivalTurn(data, b, soFar));
@@ -214,6 +220,7 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
     const fa = (t - flashFrom) / flashMs; // the transformation flash: sharp in, slow out
     $('flash').style.opacity = fa >= 0 && fa < 1 ? String(fa < 0.15 ? fa / 0.15 : (1 - fa) / 0.85) : '0';
     look.update(t);
+    cinematic.update();
     while (floats.length && t - floats[0].born > ui.floatMs) floats.shift();
     floatsEl.innerHTML = floats.map((f, i) => {
       const age = (t - f.born) / ui.floatMs;
@@ -241,5 +248,5 @@ export function createDuelView({ data, battle, figures, timing, later, now, anch
   hud();
   if (battle.next === 'rival') rival();
 
-  return { hud, update, phase: () => phase, inputs, floats: () => floats.map((f) => `${f.at}:${f.text}`), wings: () => look.worn() };
+  return { hud, update, skip: () => cinematic.skip(), timeScale: () => cinematic.timeScale(), phase: () => phase, inputs, floats: () => floats.map((f) => `${f.at}:${f.text}`), wings: () => look.worn() };
 }

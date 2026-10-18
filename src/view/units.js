@@ -13,7 +13,7 @@ const SKELETON_CLIPS = { idle: ['special', 'Skeletons_Idle'], death: ['special',
 export const FIGURES = {
   // Duel
   hero: { file: 'Knight.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Slice_Diagonal'], guard: ['melee', 'Melee_Blocking'], parry: ['melee', 'Melee_Block'], item: ['general', 'Use_Item'], summon: ['ranged', 'Ranged_Magic_Summon'], cast: ['ranged', 'Ranged_Magic_Shoot'] } },
-  rival: { file: 'Rogue_Hooded.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Stab'] } },
+  rival: { file: 'Rogue_Hooded.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Stab'], cast: ['ranged', 'Ranged_Magic_Raise'] } },
   // Party
   // Party heroes: basic / skill / ultimate each have a clip.
   barbarian: { file: 'Barbarian.glb', hold: { r: 'axe_2handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], basic: ['melee', 'Melee_2H_Attack_Chop'], skill: ['melee', 'Melee_2H_Attack_Slice'], ultimate: ['melee', 'Melee_2H_Attack_Spin'] } },

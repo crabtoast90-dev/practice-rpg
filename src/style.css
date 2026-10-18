@@ -86,6 +86,7 @@ h1 { margin: 0; font: 700 44px Georgia, serif; letter-spacing: 1px; color: #f4d5
 .dial-dot { border-radius: 50%; background: #fff; box-shadow: 0 0 12px 4px #ffb040; }
 .dial-dot[data-idle="1"] { animation: pulse 0.8s infinite alternate; }
 @keyframes pulse { to { box-shadow: 0 0 4px 1px #ffb040; } }
+#cine-title { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); z-index: 5; pointer-events: none; padding: 10px 34px; font: 800 clamp(32px, 7vw, 64px) Georgia, serif; letter-spacing: 6px; text-transform: uppercase; white-space: nowrap; color: #e8f4ff; text-shadow: 0 0 18px #6fb8ff, 0 3px 0 #0b1830; border-top: 2px solid rgba(160, 210, 255, 0.7); border-bottom: 2px solid rgba(160, 210, 255, 0.7); background: linear-gradient(90deg, transparent, rgba(10, 20, 45, 0.75), transparent); }
 #flash { position: fixed; inset: 0; pointer-events: none; background: #fff; opacity: 0; z-index: 4; }
 .mp i { background: linear-gradient(#8fc8ff, #3a7ae0) !important; }
 .form-tag { color: #ffb040; font-weight: 700; font-size: 12px; }

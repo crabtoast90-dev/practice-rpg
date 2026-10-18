@@ -39,7 +39,7 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
 - [x] **D4. Dragoon.** *(merged 2026-10-18)* After D2 and D3. Transformation (short flash, recolour / glow and wings on the hero model, Dragoon HUD), Dragoon turns equal to the rules in RESEARCH.md, the Dragoon Addition (the rotating ring press) with its own timing in the sim and on screen, the DL5 spell list with MP costs and effects, reverting when turns run out. Files: `src/duel/sim.js`, `src/duel/data.js`, `src/view/duel-view.js`, `src/view/timing.js`, `scripts/check.mjs` (SHARED).
   *Done when:* the check transforms, lands a scripted ring press sequence, casts each spell once, and reverts on schedule; matches Node.
 
-- [ ] **D5. The rival's cinematic.** After D3. The signature move: camera cuts (wide, close on the rival, over-the-shoulder on the hero), slowdown, a dramatic beat (pause, flash, title card with the move's on-screen name), then the hit. Skippable with any key after the first time. Files: new `src/view/cinematic.js`, `src/view/duel-view.js`.
+- [x] **D5. The rival's cinematic.** *(merged 2026-10-18)* After D3. The signature move: camera cuts (wide, close on the rival, over-the-shoulder on the hero), slowdown, a dramatic beat (pause, flash, title card with the move's on-screen name), then the hit. Skippable with any key after the first time. Files: new `src/view/cinematic.js`, `src/view/duel-view.js`.
   *Done when:* the check screenshots each camera beat on laptop and phone; the user gives a look score.
 
 ## Ship
