@@ -81,11 +81,12 @@ export const PARTY = {
   lineup: ['brann', 'nyx', 'sola', 'aldric'], // left to right as the camera sees them
 
   enemies: {
+    // ATK x1.5 on 2026-10-18 (tuning set A) to bring auto wins to ~70%.
     // hits: blows per turn, each on a random living hero; aoe: every blow hits the whole party.
-    skeletonMinion: { name: 'Bone Minion', model: 'skeletonMinion', hp: 3000, atk: 300, def: 400, speed: 83, hits: 1 },
-    skeletonWarrior: { name: 'Bone Warrior', model: 'skeletonWarrior', hp: 6000, atk: 420, def: 500, speed: 90, hits: 1 },
-    skeletonMage: { name: 'Bone Caster', model: 'skeletonMage', hp: 4500, atk: 380, def: 400, speed: 100, hits: 1, aoe: true },
-    skeletonRogue: { name: 'Bone Stalker', model: 'skeletonRogue', hp: 5000, atk: 460, def: 450, speed: 110, hits: 2 },
+    skeletonMinion: { name: 'Bone Minion', model: 'skeletonMinion', hp: 3000, atk: 450, def: 400, speed: 83, hits: 1 },
+    skeletonWarrior: { name: 'Bone Warrior', model: 'skeletonWarrior', hp: 6000, atk: 630, def: 500, speed: 90, hits: 1 },
+    skeletonMage: { name: 'Bone Caster', model: 'skeletonMage', hp: 4500, atk: 570, def: 400, speed: 100, hits: 1, aoe: true },
+    skeletonRogue: { name: 'Bone Stalker', model: 'skeletonRogue', hp: 5000, atk: 690, def: 450, speed: 110, hits: 2 },
   },
   waves: [
     ['skeletonMinion', 'skeletonWarrior', 'skeletonMinion'],

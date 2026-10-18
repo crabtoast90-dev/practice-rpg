@@ -1,12 +1,12 @@
 # Balance report
 
-Written by `npm run sim` on 2026-10-18 07:59 UTC. Do not edit by hand.
+Written by `npm run sim` on 2026-10-18 08:24 UTC. Do not edit by hand.
 
 ## Headline
 
 - Duel target **PASSES**: Vael falls to perfect Frenzy Chain number 7 (target 7).
 - Duel win rate: perfect 100% in 4 turns, good player 100% in 5 turns, sloppy 100% in 10 turns, mashing 100% in 18 turns (Rhen's turns, median of 1000 fights each; the bot turns Dragoon at 500 SP and Strikes).
-- Party: auto-battle wins 100% of 1000 seeded fights, in 77 turns (1306 action value) on average. Damage share: Brann 53%, Nyx 39%, Sola 2%, Aldric 5%. No targets set yet (PLAN.md P4).
+- Party: auto-battle wins 72% of 1000 seeded fights, in 78 turns (1444 action value) on average. Damage share: Brann 54%, Nyx 37%, Sola 5%, Aldric 4%. Target auto win rate 70% (accepting 65-75%): **PASSES** at 72%.
 
 ## Mode 1: Duel
 
@@ -47,17 +47,18 @@ Opening order, wave 1: Sola → Nyx → Brann → Aldric → Bone Warrior → Bo
 
 ### 1000 auto fights (seeds 1-1000)
 
-- Result: 1000 wins, 0 losses, 0 draws (win rate 100%).
-- Fight length: 77 turns on average (shortest 65, longest 95) by anyone, of which 57 hero turns on average (shortest 48, longest 65). Ultimates are extra actions and don't count as turns.
-- Fight length in action value: 1306 action value on average (shortest 1083, longest 1833) (a speed-100 unit acts once per 100).
+- Target auto win rate 70% (accepting 65-75%): **PASSES** at 72%.
+- Result: 718 wins, 282 losses, 0 draws (win rate 72%).
+- Fight length: 78 turns on average (shortest 37, longest 139) by anyone, of which 55 hero turns on average (shortest 24, longest 92). Ultimates are extra actions and don't count as turns.
+- Fight length in action value: 1444 action value on average (shortest 704, longest 5000) (a speed-100 unit acts once per 100).
 - Same seed, same fight: yes (seed 1 run twice gives identical events).
 
 hero | damage share | ultimates per fight | turns per fight | wanted to skill | starved of skill points
 --- | --- | --- | --- | --- | ---
-Brann | 53% | 3.0 | 15.3 | 100% of turns | 93% of turns
-Nyx | 39% | 3.4 | 14.7 | 71% of turns | 18% of turns
-Sola | 2% | 3.6 | 15.3 | 100% of turns | 11% of turns
-Aldric | 5% | 3.1 | 11.9 | 90% of turns | 32% of turns
+Brann | 54% | 2.9 | 14.8 | 100% of turns | 90% of turns
+Nyx | 37% | 3.0 | 12.9 | 71% of turns | 15% of turns
+Sola | 5% | 3.3 | 14.4 | 91% of turns | 16% of turns
+Aldric | 4% | 3.6 | 12.9 | 96% of turns | 27% of turns
 
 "Wanted to skill" = a skill rule in the hero's auto list fit the moment. "Starved" = it fit except the party lacked the skill points that rule asks for (1, or more if the rule says "skill points >= N"), so the hero fell through to a later rule.
 
