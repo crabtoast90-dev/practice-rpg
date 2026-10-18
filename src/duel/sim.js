@@ -220,7 +220,7 @@ export function rivalIntent(data, state) {
 
 // One hit's defence. Presses are ms from that hit's contact; any accepted press starts a
 // lockout that ignores presses for lockoutMs; the first accepted press decides the hit.
-function judgeDefense(data, entry, contactMs, lock) {
+export function judgeDefense(data, entry, contactMs, lock) {
   const d = data.defense;
   const presses = (entry === null || entry === undefined ? [] : [entry].flat()).filter(Boolean);
   const out = { verdict: 'none', presses: [] };

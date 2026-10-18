@@ -144,7 +144,7 @@ const shot = (page, name, step) => page.screenshot({ path: join(OUT, `${name}-${
 const state = (page) => page.evaluate(() => window.__game.state());
 const advance = (page, ms) => page.evaluate((t) => window.__game.advance(t), ms);
 
-async function run(name, contextOptions, script) {
+async function run(name, contextOptions, script, extra = '') {
   const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
   page.on('console', (msg) => {
@@ -157,7 +157,7 @@ async function run(name, contextOptions, script) {
   });
   page.on('pageerror', (err) => failures.push(`[${name}] page error: ${err.message}`));
   const url = new URL(base);
-  url.search = `?test&seed=${SEED}`;
+  url.search = `?test&seed=${SEED}${extra}`;
   await page.goto(url.href.replace('test=', 'test'));
   await page.waitForFunction(() => window.__game?.state().loaded, null, { timeout: 60000 });
   await script(page, name);
@@ -221,11 +221,82 @@ async function walk(page, name, click) {
   summaries.push(`## ${name} party\n${await page.evaluate(() => window.__game.stateText())}`);
 }
 
+// D2: scripted presses through the timing UI on the test clock. Frenzy Chain at -40, 0
+// and +40 ms then a missed press; Four Seals parried at -40, 0, +40 ms then not at all.
+// The ?debug overlay must list the same offsets and verdicts, and the browser's duel must
+// equal the same inputs replayed in Node.
+const nowMs = async (page) => (await state(page)).time * 1000;
+const advanceTo = async (page, ms) => { const t = await nowMs(page); if (ms > t) await advance(page, ms - t); };
+async function timingWalk(page, name, click) {
+  const fail = (msg) => failures.push(`[${name} timing] ${msg}`);
+  await advance(page, 400);
+  let s = await state(page);
+  if (s.screen !== 'duel' || s.duel.phase !== 'menu') return fail(`expected the duel menu, got ${s.screen} / ${s.duel?.phase}`);
+  await click('#duel-menu [data-cmd="attack"]');
+  await advance(page, 50);
+  s = await state(page);
+  if (s.duel.timing.phase !== 'addition') return fail('Attack did not start Frenzy Chain');
+  const { windowsTicks } = DUEL.addition;
+  const half = ((windowsTicks[0][1] - windowsTicks[0][0] + 1) * DUEL.tickMs) / 2;
+  for (const [i, off] of [-40, 0, 40, null].entries()) {
+    const at = (await state(page)).duel.timing.perfectAt;
+    if (i === 0) { await advanceTo(page, at - 300); await shot(page, name, '3-squares'); }
+    if (off === null) { await advanceTo(page, at + half + 20); break; }
+    await advanceTo(page, at + off);
+    await page.evaluate(([t]) => window.__game.press('main', t), [at + off]);
+    if (i === 0) { await advance(page, 20); await shot(page, name, '4-square-hit'); }
+  }
+  s = await state(page);
+  const chainLog = s.duel.timing.log.map((p) => [p.ms, p.verdict]);
+  const wantChain = [[-40, 'success'], [0, 'success'], [40, 'success'], [null, 'missed']];
+  if (JSON.stringify(chainLog) !== JSON.stringify(wantChain)) fail(`Frenzy Chain presses ${JSON.stringify(chainLog)}, expected ${JSON.stringify(wantChain)}`);
+  const overlay = await page.textContent('#presses-log');
+  for (const want of ['-40 ms  success', ' 0 ms  success', '+40 ms  success', 'none  missed']) if (!overlay.includes(want)) fail(`?debug overlay lacks "${want}"`);
+  await shot(page, name, '5-chain-debug');
+
+  // Vael's Four Seals: wait for the rings.
+  for (let i = 0; i < 100 && (await state(page)).duel.timing.phase !== 'defense'; i++) await advance(page, 100);
+  s = await state(page);
+  if (s.duel.timing.phase !== 'defense') return fail(`Vael's attack never came (phase ${s.duel.phase})`);
+  const contacts = s.duel.timing.contacts;
+  for (const [i, off] of [-40, 0, 40, null].entries()) {
+    const at = contacts[i];
+    if (i === 0) { await advanceTo(page, at - 300); await shot(page, name, '6-ring'); }
+    if (off === null) { await advanceTo(page, at + DUEL.defense.dodgeWindowMs); break; }
+    await advanceTo(page, at + off);
+    await page.evaluate(([t]) => window.__game.press('main', t), [at + off]);
+    if (i === 0) { await advance(page, 20); await shot(page, name, '7-parry'); }
+  }
+  await advance(page, 100);
+  s = await state(page);
+  const defLog = s.duel.timing.log.slice(-4).map((p) => [p.ms, p.verdict]);
+  const wantDef = [[-40, 'parried'], [0, 'parried'], [40, 'parried'], [null, 'none']];
+  if (JSON.stringify(defLog) !== JSON.stringify(wantDef)) fail(`Four Seals presses ${JSON.stringify(defLog)}, expected ${JSON.stringify(wantDef)}`);
+  const overlay2 = await page.textContent('#presses-log');
+  for (const want of ['-40 ms  parried', '+40 ms  parried', 'none  none']) if (!overlay2.includes(want)) fail(`?debug overlay lacks "${want}"`);
+  await advance(page, 1500);
+  s = await state(page);
+  // Same inputs through the sim in Node.
+  const node = createDuel(DUEL, SEED);
+  for (const inp of s.duel.inputs) inp.who === 'hero' ? heroTurn(DUEL, node, inp.command) : rivalTurn(DUEL, node, inp.defense);
+  const pick = (d) => JSON.stringify({ hero: d.hero, rival: d.rival, next: d.next, result: d.result });
+  if (pick(s.duel) !== pick(node)) fail(`browser duel differs from Node: ${pick(s.duel)} vs ${pick(node)}`);
+  const hurt = node.rival.hp - node.rival.hpNow;
+  if (hurt !== heroPhysical(DUEL, 80)) fail(`Vael took ${hurt}, expected ${heroPhysical(DUEL, 80)} (4 hits)`);
+  if (node.hero.hp - node.hero.hpNow !== rivalPhysical(DUEL, 4) / 4) fail(`Rhen took ${node.hero.hp - node.hero.hpNow}, expected one pillar`);
+  if (s.duel.phase !== 'menu') fail(`after Vael's turn expected the menu, got ${s.duel.phase}`);
+  await shot(page, name, '8-after');
+  summaries.push(`[${name} timing] chain ${chainLog.map(([m, v]) => `${m ?? 'none'}:${v}`).join(' ')} → 4 hits, ${hurt} damage; Four Seals ${defLog.map(([m, v]) => `${m ?? 'none'}:${v}`).join(' ')} → Rhen took ${node.hero.hp - node.hero.hpNow}; SP ${node.hero.sp}; matches Node`);
+}
+
 const DEVICES = {
   laptop: [{ viewport: { width: 1280, height: 720 } }, (page) => (sel) => page.click(sel)],
   phone: [{ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, (page) => (sel) => page.tap(sel)],
 };
-for (const [name, [opts, input]] of Object.entries(DEVICES)) await run(name, opts, (page) => walk(page, name, input(page)));
+for (const [name, [opts, input]] of Object.entries(DEVICES)) {
+  await run(name, opts, (page) => walk(page, name, input(page)));
+  await run(`${name}-timing`, opts, (page) => timingWalk(page, `${name}-timing`, input(page)), '&debug&mode=duel');
+}
 
 await browser.close();
 await server?.close();

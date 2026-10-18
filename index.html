@@ -28,7 +28,8 @@
 
     <div id="duel-hud" class="hud" hidden>
       <div class="foe panel"><span class="name" id="rival-name"></span><div class="bar hp"><i id="rival-hp"></i></div></div>
-      <div class="pending">Duel rules are in the sim; on screen next (PLAN.md D2-D3).</div>
+      <div class="pending" id="duel-note" hidden></div>
+      <div id="timing"></div>
       <div class="bottom">
         <div class="hero panel">
           <div class="row"><span class="name" id="hero-name"></span><span id="hero-dlv"></span></div>
@@ -36,6 +37,7 @@
           <div class="row"><span class="tag">SP</span><div class="sp" id="hero-sp"></div></div>
         </div>
         <div class="menu" id="duel-menu"></div>
+        <div class="pad" id="pad" hidden></div>
       </div>
     </div>
 
@@ -50,7 +52,8 @@
     </div>
 
     <button id="back" hidden>‹ Modes</button>
-    <div id="fps" hidden></div>
+    <div id="presses" class="panel" hidden><div id="fps" hidden></div><pre id="presses-log"></pre><button id="calibrate">Calibrate delay</button></div>
+    <div id="calib" hidden><p>Tap (or press Space) each time the box flashes.</p><div id="calib-box"></div></div>
     <div id="credits">Characters: KayKit (CC0)</div>
     <script type="module" src="./src/main.js"></script>
   </body>

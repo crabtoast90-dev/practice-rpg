@@ -90,6 +90,20 @@ export const DUEL = {
   bot: { healBelowPercent: 35 },
   simFights: 1000,
 
+  // The timing UI (D2). Feel numbers, all my calls until the user plays them. Sizes in CSS px.
+  timingUi: {
+    keys: { main: ['Space', 'KeyX'], counter: ['KeyC'], dodge: ['KeyZ'] }, // parry = the main key
+    squarePx: 64, squareStartScale: 3, squareTurnDeg: 90, // the outer square closes and turns onto the target
+    flashMs: 200, verdictMs: 650, // the target square's flash; the verdict word's life
+    defenseLeadMs: 750, // a ring starts closing on Rhen this long before each hit's contact
+    ringPx: 90, ringStartScale: 2.6,
+    rivalSwingLeadMs: 350, // Vael starts his swing this long before contact
+    afterChainMs: 700, beforeRivalMs: 700, afterRivalMs: 600, // pauses between turns
+    latencyFrames: 1, // the input-to-screen delay estimate, in frames, until the player calibrates
+    calibration: { flashes: 8, gapMs: 700, skip: 2 }, // tap-to-the-flash; the first `skip` taps are warm-up
+    debugPresses: 10,
+  },
+
   // Battle menu, in the source game's order. Escape is greyed out against a boss.
   menu: [
     { id: 'attack', label: 'Attack' },
