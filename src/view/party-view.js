@@ -198,7 +198,7 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
       card.classList.toggle('acting', shown.now === u.id);
       card.classList.toggle('down', !u.alive);
       card.querySelector('.hp i').style.width = pct(u.hpNow, u.hp);
-      card.querySelector('.hp-text').innerHTML = `${u.hpNow}/${u.hp}${u.shield > 0 ? ` <span class="shield-chip">+${u.shield} shield</span>` : ''}`;
+      card.querySelector('.hp-text').innerHTML = `${u.hpNow}/${u.hp}${u.shield > 0 ? ` <span class="shield-chip" title="shield">+${u.shield}</span>` : ''}`;
       const full = u.alive && u.energy >= u.maxEnergy;
       card.querySelector('.energy').classList.toggle('ready', full);
       card.querySelector('.energy i').style.width = pct(u.energy, u.maxEnergy);

@@ -80,7 +80,7 @@ h1 { margin: 0; font: 700 44px Georgia, serif; letter-spacing: 1px; color: #f4d5
 #party-sp i { width: 16px; height: 16px; transform: rotate(45deg); border: 1px solid #9fc4ff; background: #1a2240; }
 #party-sp i.full { background: #9fc4ff; }
 .cards { display: flex; gap: 6px; flex: 1; justify-content: flex-end; flex-wrap: wrap; }
-.card { width: 120px; }
+.card { width: 140px; }
 .card .role { font-size: 11px; opacity: 0.75; }
 .card .energy { height: 6px; background: #222a3e; border-radius: 3px; overflow: hidden; margin-top: 4px; }
 .card .energy i { display: block; height: 100%; background: #ffe17a; }
@@ -90,7 +90,7 @@ h1 { margin: 0; font: 700 44px Georgia, serif; letter-spacing: 1px; color: #f4d5
 .card { transition: transform 0.15s; }
 .card.acting { border-color: #ffe17a; transform: translateY(-4px); }
 .card.down { opacity: 0.45; }
-.card .hp-text { font-size: 11px; opacity: 0.8; font-variant-numeric: tabular-nums; }
+.card .hp-text { white-space: nowrap; font-size: 11px; opacity: 0.8; font-variant-numeric: tabular-nums; }
 .card .shield-chip { color: #9fd8ff; }
 .card .energy.ready i { background: linear-gradient(90deg, #ffe17a, #fff6c8, #ffe17a); box-shadow: 0 0 8px #ffe17a; }
 #plates, #floaters { position: absolute; inset: 0; pointer-events: none; }
