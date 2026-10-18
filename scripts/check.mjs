@@ -7,7 +7,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PARTY } from '../src/party/data.js';
-import { createParty, timeline, runFight } from '../src/party/sim.js';
+import { createParty, timeline, runFight, fightDigest } from '../src/party/sim.js';
 import { DUEL } from '../src/duel/data.js';
 import { createDuel, heroTurn, rivalTurn, rivalIntent, playFight, perfectChainsToFall, heroPhysical, rivalPhysical } from '../src/duel/sim.js';
 
@@ -213,12 +213,60 @@ async function walk(page, name, click) {
   const expectFigures = party.units.length;
   if (s.screen !== 'party' || s.figures.length !== expectFigures) failures.push(`[${name}] party: screen ${s.screen}, ${s.figures.length} figures (expected ${expectFigures})`);
   const nodeLine = timeline(PARTY, party, 8);
-  if (JSON.stringify(s.timeline) !== JSON.stringify(nodeLine)) failures.push(`[${name}] party timeline differs from Node sim`);
+  if (JSON.stringify(s.party.opening) !== JSON.stringify(nodeLine)) failures.push(`[${name}] party timeline differs from Node sim`);
   else summaries.push(`[${name}] party timeline matches Node sim: ${nodeLine.map((t) => `${t.name}@${t.at}`).join(', ')}`);
   checkFraming(name, 'party', s);
   await checkAlive(page, name, 'party');
   await shot(page, name, '2-party');
   summaries.push(`## ${name} party\n${await page.evaluate(() => window.__game.stateText())}`);
+  await playPartyFight(page, name, click);
+}
+
+// Party: play the seeded auto fight to the end at 2x, screenshot an ultimate cut-in,
+// wave 2 and the result, and compare the browser's fight with Node's.
+async function playPartyFight(page, name, click) {
+  const node = runFight(PARTY, SEED);
+  await click('#speed');
+  let s = await state(page);
+  if (s.party.speed !== PARTY.playback.fastSpeed) failures.push(`[${name}] party speed button did not switch to ${PARTY.playback.fastSpeed}x`);
+  let sawUlt = false;
+  let sawWave = false;
+  let still = 0;
+  let last = -1;
+  for (let i = 0; i < 1200 && !s.party.result; i++) {
+    await advance(page, 500);
+    s = await state(page);
+    if (s.party.applied === last && ++still > 12) { failures.push(`[${name}] party playback stuck at event ${last}`); break; }
+    if (s.party.applied !== last) still = 0;
+    last = s.party.applied;
+    if (!sawUlt && s.party.banner?.kind === 'ultimate') {
+      sawUlt = true;
+      await shot(page, name, '3-ultimate');
+      summaries.push(`[${name}] ultimate cut-in on screen: "${s.party.banner.text}"; timeline ${s.timeline.map((t) => t.id ?? t.name).join(', ')}`);
+    }
+    if (!sawWave && s.party.wave === 1) {
+      sawWave = true;
+      await advance(page, 400);
+      s = await state(page);
+      checkFraming(name, 'party wave 2', s);
+      await shot(page, name, '4-wave2');
+      summaries.push(`[${name}] wave 2 on screen: ${s.party.units.filter((u) => u.side === 'enemy').map((u) => u.name).join(', ')}`);
+    }
+  }
+  if (!sawUlt) failures.push(`[${name}] no ultimate cut-in seen during the party fight`);
+  if (!sawWave) failures.push(`[${name}] wave 2 never appeared`);
+  if (!s.party.result) return failures.push(`[${name}] party fight did not finish on screen`);
+  await advance(page, 300);
+  await shot(page, name, '5-result');
+  if (!(await page.isVisible('#party-end'))) failures.push(`[${name}] result banner not shown`);
+  const nodeDigest = fightDigest(node.events);
+  if (s.party.result !== node.result || s.party.digest !== nodeDigest) failures.push(`[${name}] party fight differs from Node (browser ${s.party.result} ${s.party.digest}, Node ${node.result} ${nodeDigest})`);
+  else summaries.push(`[${name}] party fight played to the end on screen: ${s.party.result}, matches Node (${nodeDigest})`);
+  summaries.push(`## ${name} party result\n${await page.evaluate(() => window.__game.stateText())}`);
+  await click('#again');
+  await advance(page, 100);
+  s = await state(page);
+  if (s.party.result || s.party.applied !== 0 || s.party.wave !== 0) failures.push(`[${name}] Play again did not restart the fight`);
 }
 
 // D2: scripted presses through the timing UI on the test clock. Frenzy Chain at -40, 0

@@ -9,7 +9,7 @@ import { createTiming, calibrate } from './view/timing.js';
 import { createDuelView } from './view/duel-view.js';
 import { createInput } from './input.js';
 import { PARTY } from './party/data.js';
-import { createParty, timeline } from './party/sim.js';
+import { createPartyView } from './view/party-view.js';
 
 // Start screen picks a mode; each mode is one stage. Rules live in the sims
 // (src/duel/sim.js, src/party/sim.js); this file only shows what they hold.
@@ -41,6 +41,7 @@ figures.ready.then(() => {
 let screen = 'start';
 let stage = null;
 let battle = null; // the sim state of the mode on screen
+let partyView = null; // plays the party sim back (src/view/party-view.js)
 let duelView = null;
 
 // Game-clock time in ms: the test clock under ?test, else the browser's event clock
@@ -98,18 +99,16 @@ function enter(mode) {
     $('duel-hud').hidden = false;
     duelView = createDuelView({ data: DUEL, battle, figures, timing, later, $ });
   } else {
-    battle = createParty(PARTY, seed, 0);
-    const heroes = battle.units.filter((u) => u.side === 'hero');
-    const enemies = battle.units.filter((u) => u.side === 'enemy');
-    stage = createStage(scene, 'party', { heroes: heroes.length, enemies: enemies.length });
-    heroes.forEach((u, i) => figures.spawn(u.id, u.model, { ...stage.spots.heroes[i], height: 1.55 }));
-    enemies.forEach((u, i) => figures.spawn(u.id, u.model, { ...stage.spots.enemies[i], height: u.kind === 'skeletonWarrior' ? 1.9 : 1.6 }));
-    showPartyHud();
+    stage = createStage(scene, 'party', { heroes: PARTY.lineup.length, enemies: Math.max(...PARTY.waves.map((w) => w.length)) });
+    partyView = createPartyView({ data: PARTY, seed, figures, stage, onRestart: () => enter('party') });
+    battle = partyView.battle;
   }
   resize();
 }
 
 function leave() {
+  partyView?.dispose();
+  partyView = null;
   figures.clear();
   stage?.dispose();
   stage = null;
@@ -122,18 +121,6 @@ function leave() {
   $('back').hidden = true;
   $('duel-hud').hidden = $('party-hud').hidden = true;
   scene.background = new THREE.Color(0x111522);
-}
-
-const pct = (n, max) => `${max ? Math.max(0, (100 * n) / max) : 100}%`;
-function showPartyHud() {
-  $('party-hud').hidden = false;
-  const sp = PARTY.rules.skillPoints;
-  $('party-sp').innerHTML = Array.from({ length: sp.max }, (_, i) => `<i class="${i < battle.skillPoints ? 'full' : ''}"></i>`).join('');
-  $('timeline').innerHTML = timeline(PARTY, battle, 8).map((t) => `<div class="${t.side}"><span>${t.name}</span><span class="av">${t.at}</span></div>`).join('');
-  $('cards').innerHTML = battle.units.filter((u) => u.side === 'hero').map((u) => {
-    const h = PARTY.heroes[u.id];
-    return `<div class="card panel"><div class="name">${h.name}</div><div class="role">${h.role}</div><div class="bar hp"><i style="width:${pct(u.hpNow, u.hp)}"></i></div><div class="energy"><i style="width:${pct(u.energy, h.maxEnergy)}"></i></div></div>`;
-  }).join('');
 }
 
 for (const b of document.querySelectorAll('.mode')) b.addEventListener('click', () => enter(b.dataset.mode));
@@ -175,6 +162,10 @@ function showPresses() {
   $('presses-log').textContent = `delay ${latency().toFixed(0)} ms (${src})\n${rows.join('\n') || 'no presses yet'}`;
 }
 function render() {
+  if (stage && partyView) {
+    frameCamera(camera, stage, innerWidth / innerHeight);
+    partyView.frame(camera);
+  }
   if (stage) renderer.render(scene, camera);
   else renderer.clear();
   debug?.frame();
@@ -183,7 +174,8 @@ function step(dt) {
   clock.tick(dt);
   runTimers();
   timing.update();
-  figures.update(dt);
+  partyView?.update(dt);
+  figures.update(dt * (partyView?.speed ?? 1));
   showPresses();
 }
 
@@ -206,9 +198,10 @@ function stateText() {
     lines.push(`menu: ${menu.map((m) => `${m.label}${m.enabled ? '' : ' (disabled)'}`).join(', ')}`);
   }
   if (screen === 'party') {
-    lines.push(`party wave ${battle.wave + 1}: skill points ${battle.skillPoints}/${PARTY.rules.skillPoints.max}`);
-    for (const u of battle.units) lines.push(`  ${u.side} ${u.name}: HP ${u.hpNow}/${u.hp}, SPD ${u.speed}`);
-    lines.push(`timeline: ${timeline(PARTY, battle, 8).map((t) => `${t.name}@${t.at}`).join(', ')}`);
+    const p = partyView.state();
+    lines.push(`party wave ${p.wave + 1}: skill points ${p.skillPoints}/${PARTY.rules.skillPoints.max}; ${p.applied} events played at ${p.speed}x; ${p.result ? `result: ${p.result}` : p.now ? `acting: ${p.now}` : 'starting'}${p.banner ? `; banner "${p.banner.text}"` : ''}`);
+    for (const u of p.units) lines.push(`  ${u.side} ${u.name}: HP ${u.hpNow}/${u.hp}${u.shield ? `, shield ${u.shield}` : ''}${u.side === 'hero' ? `, energy ${u.energy}` : ''}${u.alive ? '' : ' (down)'}`);
+    lines.push(`timeline: ${partyView.timeline().map((t) => (t.now ? `${t.id} (now)` : t.ultimate ? `${t.id} (ultimate)` : `${t.name}@${t.at}`)).join(', ')}`);
   }
   for (const f of figures.list()) lines.push(`  figure ${f.id}: ${f.model}, ${f.animation}`);
   return lines.join('\n');
@@ -219,7 +212,8 @@ window.__game = {
     screen, loaded, seed, time: clock.time,
     figures: figures.list(),
     framing: stage ? framing() : [],
-    timeline: screen === 'party' ? timeline(PARTY, battle, 8) : null,
+    timeline: screen === 'party' ? partyView.timeline() : null,
+    party: screen === 'party' ? { ...partyView.state(), opening: partyView.opening } : null,
     duel: screen === 'duel' ? { hero: battle.hero, rival: battle.rival, menu: battle.menu, next: battle.next, result: battle.result, phase: duelView.phase(), timing: timing.info(), verdict: timing.verdictText(), inputs: duelView.inputs } : null,
   }),
   stateText,

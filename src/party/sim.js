@@ -327,3 +327,11 @@ export function runFight(data, seed = 1) {
   while (!battle.result) step(data, battle);
   return battle;
 }
+
+// A short fingerprint of a fight's events, so the browser and Node can be compared.
+export function fightDigest(events) {
+  const text = JSON.stringify(events);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return `${events.length}:${h.toString(16)}`;
+}

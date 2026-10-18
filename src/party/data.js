@@ -21,6 +21,22 @@ export const PARTY = {
   //   'skill on an enemy without <Skill name>'
   //   'skill if anyone has no shield'   'skill if anyone below N% HP'
 
+  // Playback pace on screen (view only; the sim ignores these). Milliseconds at 1x.
+  playback: {
+    intro: 700, // before the first turn
+    turn: 250, // a unit steps up before acting
+    windup: 450, // attack animation until the first hit lands
+    ultimate: 1400, // cut-in banner and camera push before an ultimate lands
+    hitGap: 160, // between hits of one action
+    death: 500,
+    recover: 450, // after an action, before the next one
+    wave: 1600, // the next wave rises
+    floater: 1000, // damage and shield numbers stay up this long
+    lunge: 0.7, // metres a melee attacker steps toward its target
+    cameraPush: 0.35, // how far the camera moves toward the ultimate's caster (0-1)
+    fastSpeed: 2, // the 2x button
+  },
+
   // Four original characters in the classic roles. Multipliers are of the user's ATK
   // (or DEF / max HP for the sustain), as in the source game.
   heroes: {

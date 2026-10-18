@@ -9,20 +9,21 @@ const FADE = 0.15;
 // Every figure: its model file, its clips (which Rig_Medium file, which clip) and
 // what it holds in each hand (files in weapons/). Clips not listed use DEFAULT_CLIPS.
 const DEFAULT_CLIPS = { idle: ['general', 'Idle_A'], hit: ['general', 'Hit_A'], death: ['general', 'Death_A'] };
-const SKELETON_CLIPS = { idle: ['special', 'Skeletons_Idle'], death: ['special', 'Skeletons_Death'] };
+const SKELETON_CLIPS = { idle: ['special', 'Skeletons_Idle'], death: ['special', 'Skeletons_Death'], spawn: ['special', 'Skeletons_Spawn_Ground'] };
 export const FIGURES = {
   // Duel
   hero: { file: 'Knight.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Slice_Diagonal'] } },
   rival: { file: 'Rogue_Hooded.glb', hold: { r: 'sword_1handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], attack: ['melee', 'Melee_1H_Attack_Stab'] } },
   // Party
-  barbarian: { file: 'Barbarian.glb', hold: { r: 'axe_2handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'] } },
-  rogue: { file: 'Rogue.glb', hold: { r: 'dagger', l: 'dagger' }, clips: {} },
-  mage: { file: 'Mage.glb', hold: { r: 'staff' }, clips: {} },
-  knight: { file: 'Knight.glb', hold: { r: 'sword_1handed', l: 'shield_badge_color' }, clips: { idle: ['melee', 'Melee_Blocking'] } },
-  skeletonMinion: { file: 'Skeleton_Minion.glb', hold: { r: 'Skeleton_Axe' }, clips: SKELETON_CLIPS },
-  skeletonWarrior: { file: 'Skeleton_Warrior.glb', hold: { r: 'Skeleton_Blade', l: 'Skeleton_Shield_Large_A' }, clips: SKELETON_CLIPS },
-  skeletonMage: { file: 'Skeleton_Mage.glb', hold: { r: 'wand' }, clips: SKELETON_CLIPS },
-  skeletonRogue: { file: 'Skeleton_Rogue.glb', hold: { r: 'Skeleton_Blade', l: 'Skeleton_Blade' }, clips: SKELETON_CLIPS },
+  // Party heroes: basic / skill / ultimate each have a clip.
+  barbarian: { file: 'Barbarian.glb', hold: { r: 'axe_2handed' }, clips: { idle: ['melee', 'Melee_2H_Idle'], basic: ['melee', 'Melee_2H_Attack_Chop'], skill: ['melee', 'Melee_2H_Attack_Slice'], ultimate: ['melee', 'Melee_2H_Attack_Spin'] } },
+  rogue: { file: 'Rogue.glb', hold: { r: 'dagger', l: 'dagger' }, clips: { basic: ['melee', 'Melee_Dualwield_Attack_Slice'], skill: ['melee', 'Melee_Dualwield_Attack_Stab'], ultimate: ['melee', 'Melee_Dualwield_Attack_Chop'] } },
+  mage: { file: 'Mage.glb', hold: { r: 'staff' }, clips: { basic: ['ranged', 'Ranged_Magic_Shoot'], skill: ['ranged', 'Ranged_Magic_Raise'], ultimate: ['ranged', 'Ranged_Magic_Summon'] } },
+  knight: { file: 'Knight.glb', hold: { r: 'sword_1handed', l: 'shield_badge_color' }, clips: { idle: ['melee', 'Melee_Blocking'], basic: ['melee', 'Melee_1H_Attack_Chop'], skill: ['melee', 'Melee_Block'], ultimate: ['ranged', 'Ranged_Magic_Raise'] } },
+  skeletonMinion: { file: 'Skeleton_Minion.glb', hold: { r: 'Skeleton_Axe' }, clips: { ...SKELETON_CLIPS, attack: ['melee', 'Melee_1H_Attack_Chop'] } },
+  skeletonWarrior: { file: 'Skeleton_Warrior.glb', hold: { r: 'Skeleton_Blade', l: 'Skeleton_Shield_Large_A' }, clips: { ...SKELETON_CLIPS, attack: ['melee', 'Melee_1H_Attack_Slice_Horizontal'] } },
+  skeletonMage: { file: 'Skeleton_Mage.glb', hold: { r: 'wand' }, clips: { ...SKELETON_CLIPS, attack: ['ranged', 'Ranged_Magic_Shoot'] } },
+  skeletonRogue: { file: 'Skeleton_Rogue.glb', hold: { r: 'Skeleton_Blade', l: 'Skeleton_Blade' }, clips: { ...SKELETON_CLIPS, attack: ['melee', 'Melee_Dualwield_Attack_Slice'] } },
 };
 const RIG_FILES = {
   general: 'Rig_Medium_General.glb',
@@ -30,7 +31,7 @@ const RIG_FILES = {
   ranged: 'Rig_Medium_CombatRanged.glb',
   special: 'Rig_Medium_Special.glb',
 };
-const ONCE = new Set(['attack', 'hit', 'death']);
+const ONCE = new Set(['attack', 'basic', 'skill', 'ultimate', 'hit', 'death', 'spawn']); // play once; all but death fall back to idle
 
 export function createFigures(scene) {
   const loader = new GLTFLoader();
@@ -68,6 +69,7 @@ export function createFigures(scene) {
 
     const mixer = new THREE.AnimationMixer(model);
     const actions = {};
+    mixer.addEventListener('finished', () => { if (f.animation !== 'death' && f.animation !== 'idle') f.play('idle'); });
     for (const [name, [rig, clipName]] of Object.entries({ ...DEFAULT_CLIPS, ...fig.clips })) {
       const clip = THREE.AnimationClip.findByName(rigs[rig], clipName);
       if (!clip) throw new Error(`${kind}: no clip ${clipName} in ${RIG_FILES[rig]}`);
@@ -79,6 +81,7 @@ export function createFigures(scene) {
       id, kind, group, height, mixer, animation: 'idle',
       play(name) {
         const next = actions[name];
+        if (!next) return;
         const cur = actions[f.animation];
         next.reset().play();
         if (cur !== next) cur.crossFadeTo(next, FADE, false);
@@ -99,6 +102,14 @@ export function createFigures(scene) {
     ready,
     spawn,
     update(dt) { for (const f of live) f.mixer.update(dt); },
+    get: (id) => live.find((f) => f.id === id),
+    remove(id) {
+      const i = live.findIndex((f) => f.id === id);
+      if (i < 0) return;
+      const [f] = live.splice(i, 1);
+      scene.remove(f.group);
+      f.mixer.stopAllAction();
+    },
     clear() { for (const f of live.splice(0)) { scene.remove(f.group); f.mixer.stopAllAction(); } },
     list() { return live.map((f) => ({ id: f.id, kind: f.kind, model: FIGURES[f.kind].file, animation: f.animation, clipTime: +f.mixer.time.toFixed(3) })); },
     all: () => live,
