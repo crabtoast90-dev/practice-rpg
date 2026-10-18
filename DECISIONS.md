@@ -35,3 +35,5 @@ One dated line per decision the user makes. Lines marked *(my call)* are technic
 - 2026-10-18: Scores after D4: fun 3.7, look 2.2 ("Very good!").
 - 2026-10-18 *(my call)*: D5 Four Seals cinematic, played before both the opener and the last gasp: wide shot (1 s) → slow push-in on Vael raising his blade at 0.35x speed while four pillars of light rise around Rhen (1.4 s) → a held beat, white flash and the "FOUR SEALS" title card (1.5 s) → over Rhen's shoulder through the pillars (1 s); then the camera returns and the hits come, each pillar bursting as its hit lands. Skippable with any key or tap once you've seen it on that device. Phone-shaped screens frame the shots from further back.
 - 2026-10-18: Scores after D5: fun 4.1, look 3 ("Excellent"). Duel lane complete.
+- 2026-10-18: Skip E1 (playtest fixes): "happy with what we learned here". Go straight to E2, release. Party P4 (targets and tuning) stays open.
+- 2026-10-18 *(my call)*: Release cleanup: removed unused files from `public/models/` (Ranger model and texture, bow, Rig_Medium_MovementBasic); the sources stay in `gltf/`.
