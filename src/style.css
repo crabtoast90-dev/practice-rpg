@@ -170,4 +170,12 @@ h1 { margin: 0; font: 700 44px Georgia, serif; letter-spacing: 1px; color: #f4d5
   .hero { max-width: none; }
   .timeline { width: 138px; font-size: 12px; }
   .banner { font-size: 22px; }
+  .bottom { gap: 6px; }
+  .sp-pool { flex-direction: row; align-items: center; gap: 10px; padding: 5px 10px; }
+  .card { padding: 5px 8px; }
+  .card .role { display: none; }
+  .card .ult { margin-top: 4px; padding: 3px 0; }
+  .actions { padding: 6px 8px; }
+  .actions .title { margin-bottom: 4px; }
+  .actions button { padding: 5px 8px; }
 }

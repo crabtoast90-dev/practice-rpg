@@ -86,6 +86,7 @@ export function createPartyView({ data, seed, figures, stage, onRestart }) {
         const actor = shown.units.get(ev.actor);
         f?.play(ev.action);
         if (ev.cutIn) {
+          actor.energy = 0; // the bar is spent the moment the ultimate starts
           shown.ults = shown.ults.filter((id) => id !== ev.actor);
           shown.banner = { kind: 'ultimate', text: `${actor.name} · ${ev.name}`, start: clock, until: clock + pace.ultimate };
           push = { ...push, id: ev.actor, until: clock + pace.ultimate };
