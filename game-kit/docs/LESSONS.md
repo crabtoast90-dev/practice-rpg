@@ -44,3 +44,14 @@ No session in any game hit the usage cap.
 5. **Every game skipped the polish pass.** All three closed E1 (playtest fixes) unused: once the question was answered, the user moved on. Plan short; put the release check straight after the last feature.
 6. **Setup takes about half an hour** (skirmish 31 min, rpg 28 min) when the conventions are copied; this starter should cut that.
 7. **Clean `public/` at release.** practice-rpg removed unused model files before release; source packs stay elsewhere (now the kit).
+
+## From practice-pace-lab (setup session, 2026-10-19)
+
+A deckbuilder testing three turn structures; mode A built in the setup session.
+
+1. **Play whole runs through the real buttons, compare with Node.** The check asks the page for the bot's next move (`__game.bot()`), taps the matching card / target / End turn / reward button, and at the end compares the browser run's event digest with the same bot run in Node. It proved the UI sends the right actions, not just that the sim is deterministic.
+2. **Full playthroughs make the check slow** (~12 min for laptop + phone on the cloud's software renderer). Play the long runs at 2x, and use `npm run check -- --only=<run>` while iterating on one screen; the full check still runs before every merge.
+3. **Find the phone camera by search, not by eye.** Two hand-placed portrait cameras missed (hero cut off, half the screen empty floor). A 20-line script that projects every fighter's box for a grid of camera angles and keeps the largest fit inside the band between the top bar and the hand found a good over-the-shoulder pose first time.
+4. **KayKit hit flashes: keep emissive under ~0.25.** Higher turns the figure into a flat one-color silhouette (the textures are bright and flat). Cinematic cuts also need pulling back about 2x on phone, which sees much less sideways.
+5. **A start-deck hook (`?deck=a,b,c`) reaches rare moments on turn 1** (the combo, the finisher cinematic), so the check screenshots them on every run, whatever the seed.
+6. **Hide the HUD during cinematics** with one body class (`body.cinematic`), and measure framing from the resting camera pose, not the shaking or cut one.

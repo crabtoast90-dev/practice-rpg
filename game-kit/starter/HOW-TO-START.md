@@ -22,7 +22,7 @@ For the **setup session** of a new project (session 0). Claude follows these ste
 
 ## What the starter already does
 - Vite + three.js (versions pinned in `package.json`), relative base so it works on GitHub Pages.
-- `npm run check`: Node determinism, build, headless laptop and phone runs, screenshots + `summary.txt` in `check-output/`, fails on console errors, failed requests, frozen animation, figures out of frame, browser fight different from Node; `--url=` for the live site; a `?tune` Defeat run and a `?debug` run.
+- `npm run check`: Node determinism, build, headless laptop and phone runs, screenshots + `summary.txt` in `check-output/`, fails on console errors, failed requests, frozen animation, figures out of frame, browser fight different from Node; `--url=` for the live site; `--only=<run>` for a quick partial check while iterating; a `?tune` Defeat run and a `?debug` run.
 - `npm run sim` → `BALANCE.md` with a pass / fail headline against `targets` in the data file.
 - `npm run log-time` → time columns in `LOG.md` from the session transcript (one file per session in `timelog/`).
 - Hooks: `?test`, `?seed=N`, `?mode=<mode>`, `?tune=path:value`, `?debug`, `window.__game.state() / stateText() / enter() / advance(ms)`.

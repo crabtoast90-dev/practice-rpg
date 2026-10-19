@@ -4,6 +4,8 @@
 // the same sim run in Node. Add steps here for every feature you build.
 //   npm run check                    build and check this checkout
 //   npm run check -- --url=<live>    check a deployed site instead
+//   npm run check -- --only=defeat   only the runs whose name contains "defeat" (quick iteration;
+//                                    the full check must still pass before a merge)
 import { build, preview } from 'vite';
 import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -16,6 +18,7 @@ const RUNS = 'check-output';
 const KEEP = 5;
 const OUT = join(RUNS, new Date().toISOString().replace(/[:.]/g, '-')); // one folder per run
 const URL_ARG = process.argv.find((a) => a.startsWith('--url='))?.slice(6);
+const ONLY = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
 const SEED = 1;
 const LOSE_TUNE = 'foe.atk:90'; // a foe strong enough to win, to check the Defeat path
 
@@ -55,6 +58,7 @@ const state = (page) => page.evaluate(() => window.__game.state());
 const advance = (page, ms) => page.evaluate((t) => window.__game.advance(t), ms);
 
 async function run(name, contextOptions, script, extra = '') {
+  if (ONLY && !name.includes(ONLY)) return;
   const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
   page.on('console', (msg) => {
@@ -169,7 +173,7 @@ await browser.close();
 await server?.close();
 
 const report = [
-  `# Check ${failures.length ? 'FAILED' : 'passed'} — ${new Date().toISOString()}`,
+  `# Check ${failures.length ? 'FAILED' : 'passed'}${ONLY ? ` (ONLY runs matching "${ONLY}")` : ''} — ${new Date().toISOString()}`,
   `target: ${base}`,
   '',
   ...summaries,
