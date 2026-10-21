@@ -81,9 +81,14 @@ function turnsFromEvents(paths) {
   return turns.sort((a, b) => a.start - b.start);
 }
 
+// The session's transcript: with --session=<id>, the newest <id>.jsonl in any project folder
+// (a session whose working folder changed writes its transcript under the new folder);
+// otherwise the newest transcript for this folder.
 function newestTranscript() {
-  const dir = join(homedir(), '.claude', 'projects', process.cwd().replace(/[^A-Za-z0-9]/g, '-'));
-  const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl')).map((f) => join(dir, f));
+  const root = join(homedir(), '.claude', 'projects');
+  const session = arg('session');
+  const dirs = session ? readdirSync(root).map((d) => join(root, d)) : [join(root, process.cwd().replace(/[^A-Za-z0-9]/g, '-'))];
+  const files = dirs.flatMap((dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.jsonl') && (!session || f === `${session}.jsonl`)).map((f) => join(dir, f)) : []));
   return files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
 }
 

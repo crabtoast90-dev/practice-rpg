@@ -55,3 +55,4 @@ A deckbuilder testing three turn structures; mode A built in the setup session.
 4. **KayKit hit flashes: keep emissive under ~0.25.** Higher turns the figure into a flat one-color silhouette (the textures are bright and flat). Cinematic cuts also need pulling back about 2x on phone, which sees much less sideways.
 5. **A start-deck hook (`?deck=a,b,c`) reaches rare moments on turn 1** (the combo, the finisher cinematic), so the check screenshots them on every run, whatever the seed.
 6. **Hide the HUD during cinematics** with one body class (`body.cinematic`), and measure framing from the resting camera pose, not the shaking or cut one.
+7. **A session's transcript can move.** When the working folder changed mid-session, `npm run log-time` read the old transcript and recorded 0 turns. It now finds `<session id>.jsonl` in any project folder when `--session` is given.
